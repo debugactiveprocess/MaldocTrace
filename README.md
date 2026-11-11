@@ -2,9 +2,6 @@
 
 MaldocTrace is a defensive analyzer for malicious Office macros, written in Go. It extracts VBA from Office documents, rebuilds obfuscated strings, and emulates the macros in a fully simulated environment. The output reports what the document *would* do: the commands it would run, the payloads it would decode and the files it would drop. All of it is backed by evidence that points to the module, procedure and line that produced it.
 
-**MaldocTrace never executes the sample.** No process is started, no network request is made, no COM object is created, no DLL is loaded and the host is never modified. Every external effect is recorded as a simulated event.
-
-> ⚠️ This tool is meant for malware analysis in an isolated environment. The examples below come from real malicious documents. URLs are defanged (`hxxp`, `[.]`), and the samples themselves are **not** included in this repository.
 
 ---
 
@@ -342,9 +339,3 @@ go test -run '^$' -fuzz '^FuzzAnalyzeBytes$' -fuzztime 60s .
 ```
 
 Inputs that made the fuzzers fail are kept under `testdata/fuzz/` as permanent regression cases.
-
-## Limitations
-
-- The emulator covers the subset of VBA and COM that macro malware commonly uses. Anything outside it is reported in `diagnostics`, and the report status becomes `partial`.
-- Results describe what the macro *would* do under the simulated environment. Code paths that depend on real system state (files, registry, network responses) may diverge. HTTP responses can be supplied as fixtures through the library API.
-- Indicators are evidence candidates, not proof of malicious activity or of a successful connection.
