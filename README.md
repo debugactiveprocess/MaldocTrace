@@ -31,6 +31,10 @@ MaldocTrace is a defensive analyzer for malicious Office macros, written in Go. 
 
 ---
 
+## Download
+
+Prebuilt binaries for **Windows**, **Linux** and **macOS** (x64 and ARM64) are on the [Releases](https://github.com/debugactiveprocess/MaldocTrace/releases) page, along with SHA-256 checksums. Each release's notes come from [CHANGELOG.md](CHANGELOG.md).
+
 ## Build
 
 Requires Go 1.23+.
@@ -342,6 +346,18 @@ go test -run '^$' -fuzz '^FuzzAnalyzeBytes$' -fuzztime 60s .
 ```
 
 Inputs that made the fuzzers fail are kept under `testdata/fuzz/` as permanent regression cases.
+
+## Releasing
+
+1. Add a `## [X.Y.Z] - YYYY-MM-DD` section to [CHANGELOG.md](CHANGELOG.md).
+2. Tag the commit on `main` and push the tag:
+
+   ```bash
+   git tag vX.Y.Z
+   git push origin vX.Y.Z
+   ```
+
+The [release workflow](.github/workflows/release.yml) then runs the tests and builds static binaries for Windows, Linux and macOS (amd64/arm64), stamping each with the version from the tag. It publishes a GitHub Release with the archives, `checksums.txt` and that CHANGELOG section as notes. A tag without a matching CHANGELOG section fails instead of publishing an empty release.
 
 ## Limitations
 
