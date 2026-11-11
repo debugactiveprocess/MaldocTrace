@@ -235,15 +235,8 @@ func TestRecoveredPanicBecomesDiagnostic(t *testing.T) {
 
 // Regression checks against the real samples, skipped when absent.
 func TestSampleRegressions(t *testing.T) {
-	read := func(name string) []byte {
-		b, err := os.ReadFile(filepath.Join("samples", name))
-		if err != nil {
-			t.Skipf("sample not present: %v", err)
-		}
-		return b
-	}
 	t.Run("powershell concat", func(t *testing.T) {
-		r := AnalyzeFromBytes(nil, read("PO-465514-180820.doc.bin"), "po", Options{})
+		r := AnalyzeFromBytes(nil, readSample(t, "PO-465514-180820.doc.bin"), "po", Options{})
 		urls := iocValues(r, "url")
 		for _, want := range []string{
 			"http://oubaina.com/wp-includes/lqkz_nvr_1avf4/",
@@ -263,7 +256,7 @@ func TestSampleRegressions(t *testing.T) {
 		}
 	})
 	t.Run("scriptcontrol", func(t *testing.T) {
-		r := AnalyzeFromBytes(nil, read("9eebae3cce1e63f01eaa6867ae8537cf19162527bb7e7d752282f0e20dc03a66.bin"), "sc", Options{})
+		r := AnalyzeFromBytes(nil, readSample(t, "9eebae3cce1e63f01eaa6867ae8537cf19162527bb7e7d752282f0e20dc03a66.bin"), "sc", Options{})
 		if len(r.Commands) != 0 || len(r.ScriptCalls) != 1 || r.ScriptCalls[0].Function != "hexer" || r.ScriptCalls[0].DefinedIn == "" {
 			t.Fatalf("commands=%+v calls=%+v", r.Commands, r.ScriptCalls)
 		}
@@ -277,7 +270,7 @@ func TestSampleRegressions(t *testing.T) {
 		}
 	})
 	t.Run("utf7 shellcode", func(t *testing.T) {
-		r := AnalyzeFromBytes(nil, read("394c97cc9d567e556a357f129aea03f737cbd2a1761df32146ef69d93afc73dc.doc"), "sc", Options{})
+		r := AnalyzeFromBytes(nil, readSample(t, "394c97cc9d567e556a357f129aea03f737cbd2a1761df32146ef69d93afc73dc.doc"), "sc", Options{})
 		if len(r.Commands) != 1 || !strings.HasPrefix(r.Commands[0].CommandLine, "+VZCJSFXlgUiA7A-") {
 			t.Fatalf("commands=%+v", r.Commands)
 		}
