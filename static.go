@@ -5,8 +5,8 @@ import (
 	"sort"
 	"strings"
 
-	"maldoctrace/extractor"
-	"maldoctrace/report"
+	"github.com/debugactiveprocess/MaldocTrace/extractor"
+	"github.com/debugactiveprocess/MaldocTrace/report"
 )
 
 // staticAnalysis records findings that need no emulation: external

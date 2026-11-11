@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"maldoctrace/vba/ast"
+	"github.com/debugactiveprocess/MaldocTrace/vba/ast"
 )
 
 func numericResult(f float64, l, r Value) Value {

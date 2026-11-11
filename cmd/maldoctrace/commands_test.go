@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	"maldoctrace"
+	"github.com/debugactiveprocess/MaldocTrace"
 )
 
 func TestParseInterspersedFlags(t *testing.T) {

@@ -3,7 +3,7 @@ package runtime
 import (
 	"context"
 	"fmt"
-	"maldoctrace/vba/ast"
+	"github.com/debugactiveprocess/MaldocTrace/vba/ast"
 	"strconv"
 	"strings"
 )

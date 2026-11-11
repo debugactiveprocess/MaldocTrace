@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	"maldoctrace/vba/ast"
-	"maldoctrace/vba/lexer"
+	"github.com/debugactiveprocess/MaldocTrace/vba/ast"
+	"github.com/debugactiveprocess/MaldocTrace/vba/lexer"
 )
 
 // Event records a simulated external action or an observed operation.

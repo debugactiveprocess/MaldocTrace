@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"maldoctrace/extractor"
+	"github.com/debugactiveprocess/MaldocTrace/extractor"
 )
 
 func readFile(path string) ([]byte, error) { return os.ReadFile(path) }

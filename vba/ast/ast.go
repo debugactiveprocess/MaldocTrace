@@ -1,7 +1,7 @@
 // Package ast defines the abstract syntax tree nodes for VBA modules.
 package ast
 
-import "maldoctrace/vba/lexer"
+import "github.com/debugactiveprocess/MaldocTrace/vba/lexer"
 
 type Node interface{ Pos() lexer.Pos }
 

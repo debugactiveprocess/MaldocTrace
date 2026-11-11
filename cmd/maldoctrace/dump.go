@@ -9,7 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"maldoctrace/report"
+	"github.com/debugactiveprocess/MaldocTrace/report"
 )
 
 // dumpEntry describes one file written by --dump-payloads.

@@ -3,8 +3,8 @@ package parser
 import (
 	"strings"
 
-	"maldoctrace/vba/ast"
-	"maldoctrace/vba/lexer"
+	"github.com/debugactiveprocess/MaldocTrace/vba/ast"
+	"github.com/debugactiveprocess/MaldocTrace/vba/lexer"
 )
 
 func (p *parser) parseDeclare() *ast.Declare {

@@ -3,7 +3,7 @@ package emulation
 import (
 	"strings"
 
-	"maldoctrace/vba/runtime"
+	"github.com/debugactiveprocess/MaldocTrace/vba/runtime"
 )
 
 // httpReq simulates MSXML2.XMLHTTP / WinHttp.WinHttpRequest.

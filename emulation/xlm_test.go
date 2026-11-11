@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"maldoctrace/extractor"
-	"maldoctrace/vba/runtime"
+	"github.com/debugactiveprocess/MaldocTrace/extractor"
+	"github.com/debugactiveprocess/MaldocTrace/vba/runtime"
 )
 
 func TestParseXLM(t *testing.T) {

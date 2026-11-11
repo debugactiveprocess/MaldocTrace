@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"maldoctrace/extractor"
+	"github.com/debugactiveprocess/MaldocTrace/extractor"
 )
 
 // XLM formula AST. Formulas are parsed from their A1 text (OOXML stores

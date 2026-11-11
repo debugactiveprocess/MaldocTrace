@@ -5,9 +5,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"maldoctrace/indicators"
-	"maldoctrace/payload"
-	"maldoctrace/report"
+	"github.com/debugactiveprocess/MaldocTrace/indicators"
+	"github.com/debugactiveprocess/MaldocTrace/payload"
+	"github.com/debugactiveprocess/MaldocTrace/report"
 	"regexp"
 	"strings"
 )

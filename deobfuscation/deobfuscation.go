@@ -6,7 +6,7 @@
 package deobfuscation
 
 import (
-	"maldoctrace/vba/ast"
+	"github.com/debugactiveprocess/MaldocTrace/vba/ast"
 )
 
 // Decoded is a statically reconstructed string with its provenance.

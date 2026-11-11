@@ -2,12 +2,12 @@ package maldoctrace
 
 import (
 	"encoding/base64"
-	"maldoctrace/payload"
+	"github.com/debugactiveprocess/MaldocTrace/payload"
 	"strings"
 	"testing"
 
-	"maldoctrace/report"
-	"maldoctrace/vba/parser"
+	"github.com/debugactiveprocess/MaldocTrace/report"
+	"github.com/debugactiveprocess/MaldocTrace/vba/parser"
 )
 
 // A dropper that keeps its payload in the document body: it reads command

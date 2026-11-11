@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"maldoctrace/vba/runtime"
+	"github.com/debugactiveprocess/MaldocTrace/vba/runtime"
 )
 
 // wordDoc is the simulated body of the analysed document, shared by every

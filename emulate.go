@@ -6,14 +6,14 @@ import (
 	"fmt"
 	"strings"
 
-	"maldoctrace/deobfuscation"
-	"maldoctrace/emulation"
-	"maldoctrace/extractor"
-	"maldoctrace/indicators"
-	"maldoctrace/report"
-	"maldoctrace/vba/ast"
-	"maldoctrace/vba/parser"
-	"maldoctrace/vba/runtime"
+	"github.com/debugactiveprocess/MaldocTrace/deobfuscation"
+	"github.com/debugactiveprocess/MaldocTrace/emulation"
+	"github.com/debugactiveprocess/MaldocTrace/extractor"
+	"github.com/debugactiveprocess/MaldocTrace/indicators"
+	"github.com/debugactiveprocess/MaldocTrace/report"
+	"github.com/debugactiveprocess/MaldocTrace/vba/ast"
+	"github.com/debugactiveprocess/MaldocTrace/vba/parser"
+	"github.com/debugactiveprocess/MaldocTrace/vba/runtime"
 )
 
 type procDispatcher struct{ ints map[string]*runtime.Interp }

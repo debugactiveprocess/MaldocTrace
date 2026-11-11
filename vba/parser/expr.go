@@ -4,8 +4,8 @@ import (
 	"strconv"
 	"strings"
 
-	"maldoctrace/vba/ast"
-	"maldoctrace/vba/lexer"
+	"github.com/debugactiveprocess/MaldocTrace/vba/ast"
+	"github.com/debugactiveprocess/MaldocTrace/vba/lexer"
 )
 
 // Binary precedence table: higher binds tighter.

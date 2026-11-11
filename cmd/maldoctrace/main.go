@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"os"
 
-	"maldoctrace"
+	"github.com/debugactiveprocess/MaldocTrace"
 )
 
 const usageText = `MaldocTrace - defensive VBA macro analysis for Office documents

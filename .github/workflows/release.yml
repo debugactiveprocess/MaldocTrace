@@ -51,7 +51,7 @@ jobs:
           BIN="maldocTrace"
           if [ "$GOOS" = "windows" ]; then BIN="maldocTrace.exe"; fi
           mkdir -p "stage/$NAME" dist
-          go build -trimpath -ldflags "-s -w -X maldoctrace.Version=${VERSION}" -o "stage/$NAME/$BIN" ./cmd/maldoctrace
+          go build -trimpath -ldflags "-s -w -X github.com/debugactiveprocess/MaldocTrace.Version=${VERSION}" -o "stage/$NAME/$BIN" ./cmd/maldoctrace
           cp README.md CHANGELOG.md "stage/$NAME/"
           cd stage
           if [ "$GOOS" = "windows" ]; then

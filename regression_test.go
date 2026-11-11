@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"maldoctrace/report"
+	"github.com/debugactiveprocess/MaldocTrace/report"
 )
 
 func iocValues(r *report.Report, typ string) map[string]report.IOC {

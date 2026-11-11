@@ -9,7 +9,7 @@ package emulation
 import (
 	"strings"
 
-	"maldoctrace/vba/runtime"
+	"github.com/debugactiveprocess/MaldocTrace/vba/runtime"
 )
 
 // Dispatcher runs a procedure of a named module and returns its value. It is

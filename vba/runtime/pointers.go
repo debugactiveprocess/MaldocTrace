@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"maldoctrace/vba/ast"
+	"github.com/debugactiveprocess/MaldocTrace/vba/ast"
 )
 
 // Simulated pointers. VarPtr/StrPtr return a deterministic fake address that

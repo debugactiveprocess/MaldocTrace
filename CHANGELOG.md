@@ -5,6 +5,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-11
+
+Licensing and packaging release. The analysis is unchanged from 0.2.0.
+
+### Downloads
+
+| Platform | Archive |
+|---|---|
+| Windows x64 / ARM64 | `maldocTrace_0.2.1_windows_amd64.zip`, `maldocTrace_0.2.1_windows_arm64.zip` |
+| Linux x64 / ARM64 | `maldocTrace_0.2.1_linux_amd64.tar.gz`, `maldocTrace_0.2.1_linux_arm64.tar.gz` |
+| macOS Intel / Apple Silicon | `maldocTrace_0.2.1_darwin_amd64.tar.gz`, `maldocTrace_0.2.1_darwin_arm64.tar.gz` |
+
+You can verify downloads against `checksums.txt` (SHA-256).
+
+### Added
+
+- MaldocTrace is now licensed under the Apache License 2.0 (`LICENSE`).
+
+### Changed
+
+- The Go module path is now `github.com/debugactiveprocess/MaldocTrace`, so `go install github.com/debugactiveprocess/MaldocTrace/cmd/maldoctrace@v0.2.1` works and the import path matches the repository (needed for Debian/Kali packaging).
+
 ## [0.2.0] - 2026-11-11
 
 Excel 4.0 macros, static detection of macro-less attacks (template injection, DDE, OLE, Equation Editor exploits in RTF), payloads hidden in cells and document properties, and VBA stomping detection.

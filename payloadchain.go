@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	"maldoctrace/indicators"
-	"maldoctrace/payload"
-	"maldoctrace/report"
+	"github.com/debugactiveprocess/MaldocTrace/indicators"
+	"github.com/debugactiveprocess/MaldocTrace/payload"
+	"github.com/debugactiveprocess/MaldocTrace/report"
 )
 
 // vfsFile is a file the macro wrote in the simulated environment.
