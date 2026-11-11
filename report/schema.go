@@ -1,0 +1,172 @@
+// Package report defines the versioned JSON schema and the human-readable text
+// renderer for analysis results.
+package report
+
+import "maldoctrace/vba/runtime"
+
+// SchemaVersion is the version of the JSON schema emitted by this tool.
+const SchemaVersion = "1.2.0"
+
+// Report is the top-level, self-contained analysis result for one file.
+type Report struct {
+	Commands          []Command        `json:"commands"`
+	DecodedPayloads   []DecodedPayload `json:"decoded_payloads"`
+	ScriptCalls       []ScriptCall     `json:"script_calls"`
+	Indicators        []IOC            `json:"indicators"`
+	OperationalStatus string           `json:"operational_status"`
+	SemanticCoverage  string           `json:"semantic_coverage"`
+	SchemaVersion     string           `json:"schema_version"`
+	ToolVersion       string           `json:"tool_version"`
+	File              FileInfo         `json:"file"`
+	Format            string           `json:"format"`
+	Status            string           `json:"status"` // complete | partial | failed | timeout
+	Macros            string           `json:"macros"` // present | absent | unknown
+	Encrypted         bool             `json:"encrypted"`
+	Coverage          Coverage         `json:"coverage"`
+	Projects          []Project        `json:"projects,omitempty"`
+	Modules           []Module         `json:"modules,omitempty"`
+	EntryPoints       []EntryPoint     `json:"entry_points,omitempty"`
+	Decoded           []DecodedStr     `json:"decoded_strings,omitempty"`
+	Events            []Event          `json:"events,omitempty"`
+	IOCs              []IOC            `json:"iocs,omitempty"`
+	Artifacts         []Artifact       `json:"artifacts,omitempty"`
+	Diagnostics       []Diagnostic     `json:"diagnostics,omitempty"`
+	LimitsHit         []string         `json:"limits_hit,omitempty"`
+	DurationMs        int64            `json:"duration_ms"`
+	Stats             Stats            `json:"stats"`
+}
+
+// FileInfo identifies the analysed input.
+type FileInfo struct {
+	Path   string `json:"path,omitempty"`
+	Name   string `json:"name,omitempty"`
+	SHA256 string `json:"sha256"`
+	Size   int64  `json:"size"`
+}
+
+// Coverage declares which language features were exercised and the gaps found.
+type Coverage struct {
+	FormatsSupported    []string `json:"formats_supported"`
+	ParsedProcedures    int      `json:"parsed_procedures"`
+	EmulatedProcedures  int      `json:"emulated_procedures"`
+	SupportedFeatures   []string `json:"supported_features"`
+	UnsupportedFound    []string `json:"unsupported_found,omitempty"`
+	ConditionalCompiled bool     `json:"conditional_compiled"`
+}
+
+// Project describes a VBA project found in the container.
+type Project struct {
+	Name       string `json:"name"`
+	DirStream  string `json:"dir_stream,omitempty"`
+	SourceFile string `json:"source_file,omitempty"`
+	Codepage   uint16 `json:"codepage,omitempty"`
+	SysKind    uint32 `json:"sys_kind,omitempty"`
+	LCID       uint32 `json:"lcid,omitempty"`
+}
+
+// Module describes one extracted module.
+type Module struct {
+	Name       string `json:"name"`
+	FileName   string `json:"file_name,omitempty"`
+	Type       string `json:"type,omitempty"`
+	Codepage   uint16 `json:"codepage,omitempty"`
+	SourceFile string `json:"source_file,omitempty"`
+	CodeLen    int    `json:"code_len"`
+}
+
+// EntryPoint is an auto-executable procedure.
+type EntryPoint struct {
+	Module  string `json:"module"`
+	Proc    string `json:"proc"`
+	Trigger string `json:"trigger,omitempty"`
+	Line    int    `json:"line,omitempty"`
+}
+
+// DecodedStr is a reconstructed string with provenance and discovery method.
+type DecodedStr struct {
+	Value  string `json:"value"`
+	Kind   string `json:"kind"`             // static | observed | heuristic | literal
+	Method string `json:"method,omitempty"` // how it was rebuilt: literal, concatenation+Chr, ...
+	Module string `json:"module,omitempty"`
+	Proc   string `json:"proc,omitempty"`
+	Line   int    `json:"line,omitempty"`
+	Col    int    `json:"col,omitempty"`
+}
+
+// Event is a recorded (simulated) operational observation.
+type Event struct {
+	Receiver          string             `json:"receiver,omitempty"`
+	Method            string             `json:"method,omitempty"`
+	Arguments         []runtime.Argument `json:"arguments,omitempty"`
+	CallChain         []string           `json:"call_chain,omitempty"`
+	LocationInherited bool               `json:"location_inherited,omitempty"`
+	ID                int                `json:"id"`
+	Type              string             `json:"type"`
+	Module            string             `json:"module,omitempty"`
+	Proc              string             `json:"proc,omitempty"`
+	Line              int                `json:"line,omitempty"`
+	Col               int                `json:"col,omitempty"`
+	Raw               []string           `json:"raw,omitempty"`
+	Resolved          []string           `json:"resolved,omitempty"`
+	Simulated         bool               `json:"simulated"`
+	Speculative       bool               `json:"speculative"`
+	Extra             map[string]string  `json:"extra,omitempty"`
+}
+
+// IOC is a deduplicated indicator with its occurrences and evidence.
+type IOC struct {
+	ID        string `json:"id,omitempty"`
+	Type      string `json:"type"`
+	Value     string `json:"value"`
+	Discovery string `json:"discovery"` // literal | static | observed | heuristic
+	// SameAs names the command or payload whose full text equals Value, so
+	// renderers can print a reference instead of repeating it.
+	SameAs string `json:"same_as,omitempty"`
+	// PartOf names the recovered script this value is a fragment of.
+	PartOf      string       `json:"part_of,omitempty"`
+	Occurrences []Occurrence `json:"occurrences,omitempty"`
+}
+
+// Occurrence links an IOC to the exact evidence that produced it.
+type Occurrence struct {
+	Discovery  string `json:"discovery,omitempty"`
+	EvidenceID string `json:"evidence_id,omitempty"`
+	Module     string `json:"module,omitempty"`
+	Proc       string `json:"proc,omitempty"`
+	Line       int    `json:"line,omitempty"`
+	Col        int    `json:"col,omitempty"`
+	Evidence   string `json:"evidence,omitempty"`
+	FromEvent  bool   `json:"from_event,omitempty"`
+}
+
+// Artifact is a reconstructed payload or file with its hash.
+type Artifact struct {
+	Name      string `json:"name,omitempty"`
+	Path      string `json:"path,omitempty"`
+	SHA256    string `json:"sha256"`
+	Size      int    `json:"size"`
+	Discovery string `json:"discovery"`
+	Module    string `json:"module,omitempty"`
+	Proc      string `json:"proc,omitempty"`
+	Raw       []byte `json:"-"` // file content, for --dump-payloads
+}
+
+// Diagnostic is a non-fatal observation from any pipeline stage.
+type Diagnostic struct {
+	ID          string   `json:"id,omitempty"`
+	EvidenceIDs []string `json:"evidence_ids,omitempty"`
+	Severity    string   `json:"severity"`
+	Stage       string   `json:"stage"`
+	Module      string   `json:"module,omitempty"`
+	Line        int      `json:"line,omitempty"`
+	Message     string   `json:"message"`
+}
+
+// Stats summarises work performed.
+type Stats struct {
+	StepsExecuted      int `json:"steps_executed"`
+	EventsRecorded     int `json:"events_recorded"`
+	IOCCount           int `json:"ioc_count"`
+	DecodedStringCount int `json:"decoded_string_count"`
+	LoopLimitHits      int `json:"loop_limit_hits"`
+}
