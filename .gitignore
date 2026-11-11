@@ -1,0 +1,17 @@
+# Build output
+/maldocTrace
+/maldocTrace.exe
+*.exe
+
+# Live malware samples and analysis scratch space: never commit these.
+/samples/
+/_work/
+dumps/
+*.bin
+*.doc
+*.docm
+*.xls
+*.xlsm
+
+# Go fuzzing cache (the corpus under testdata/fuzz is kept on purpose)
+/fuzz/
