@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	"maldoctrace/vba/ast"
+	"github.com/debugactiveprocess/MaldocTrace/vba/ast"
 )
 
 // Fold statically evaluates a side-effect-free expression to a string and

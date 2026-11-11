@@ -6,8 +6,8 @@ package parser
 import (
 	"strings"
 
-	"maldoctrace/vba/ast"
-	"maldoctrace/vba/lexer"
+	"github.com/debugactiveprocess/MaldocTrace/vba/ast"
+	"github.com/debugactiveprocess/MaldocTrace/vba/lexer"
 )
 
 // Parse parses VBA source into an AST. Positions refer to the conditionally

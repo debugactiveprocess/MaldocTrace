@@ -3,7 +3,7 @@ package maldoctrace
 import (
 	"fmt"
 
-	"maldoctrace/report"
+	"github.com/debugactiveprocess/MaldocTrace/report"
 )
 
 // runStage executes one pipeline stage and converts a panic into a recorded

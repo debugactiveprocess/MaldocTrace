@@ -1,4 +1,4 @@
-module maldoctrace
+module github.com/debugactiveprocess/MaldocTrace
 
 go 1.23
 

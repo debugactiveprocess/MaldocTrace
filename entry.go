@@ -3,7 +3,7 @@ package maldoctrace
 import (
 	"strings"
 
-	"maldoctrace/report"
+	"github.com/debugactiveprocess/MaldocTrace/report"
 )
 
 var autoexecNames = map[string]string{

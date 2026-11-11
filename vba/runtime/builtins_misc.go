@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"maldoctrace/vba/lexer"
+	"github.com/debugactiveprocess/MaldocTrace/vba/lexer"
 )
 
 func builtinArray(rt *Interp, args []Value, _ lexer.Pos) Value {

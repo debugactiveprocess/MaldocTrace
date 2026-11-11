@@ -2,7 +2,7 @@
 // renderer for analysis results.
 package report
 
-import "maldoctrace/vba/runtime"
+import "github.com/debugactiveprocess/MaldocTrace/vba/runtime"
 
 // SchemaVersion is the version of the JSON schema emitted by this tool.
 const SchemaVersion = "1.3.0"

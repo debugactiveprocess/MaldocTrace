@@ -1,7 +1,7 @@
 package emulation
 
 import (
-	"maldoctrace/vba/runtime"
+	"github.com/debugactiveprocess/MaldocTrace/vba/runtime"
 	"strings"
 )
 

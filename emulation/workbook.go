@@ -4,8 +4,8 @@ import (
 	"strconv"
 	"strings"
 
-	"maldoctrace/extractor"
-	"maldoctrace/vba/runtime"
+	"github.com/debugactiveprocess/MaldocTrace/extractor"
+	"github.com/debugactiveprocess/MaldocTrace/vba/runtime"
 )
 
 // The workbook model is shared by VBA (Sheets/Range/Cells) and the Excel 4.0

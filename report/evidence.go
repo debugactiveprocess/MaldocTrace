@@ -1,6 +1,6 @@
 package report
 
-import "maldoctrace/vba/runtime"
+import "github.com/debugactiveprocess/MaldocTrace/vba/runtime"
 
 type Source struct {
 	Module    string `json:"module,omitempty"`

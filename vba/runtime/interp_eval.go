@@ -3,8 +3,8 @@ package runtime
 import (
 	"strings"
 
-	"maldoctrace/vba/ast"
-	"maldoctrace/vba/lexer"
+	"github.com/debugactiveprocess/MaldocTrace/vba/ast"
+	"github.com/debugactiveprocess/MaldocTrace/vba/lexer"
 )
 
 func (rt *Interp) eval(e ast.Expr) Value {

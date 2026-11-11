@@ -3,7 +3,7 @@ package emulation
 import (
 	"strings"
 
-	"maldoctrace/vba/runtime"
+	"github.com/debugactiveprocess/MaldocTrace/vba/runtime"
 )
 
 func (h *Host) rec(t string, args []runtime.Value, extra map[string]string) {

@@ -11,9 +11,9 @@ import (
 	"sync"
 	"time"
 
-	"maldoctrace"
-	"maldoctrace/report"
-	varuntime "maldoctrace/vba/runtime"
+	"github.com/debugactiveprocess/MaldocTrace"
+	"github.com/debugactiveprocess/MaldocTrace/report"
+	varuntime "github.com/debugactiveprocess/MaldocTrace/vba/runtime"
 )
 
 func runAnalyze(args []string) error {

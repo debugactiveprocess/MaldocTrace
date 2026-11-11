@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	"maldoctrace/extractor"
-	"maldoctrace/vba/runtime"
+	"github.com/debugactiveprocess/MaldocTrace/extractor"
+	"github.com/debugactiveprocess/MaldocTrace/vba/runtime"
 )
 
 // The Excel 4.0 macro engine executes macro-sheet formulas cell by cell

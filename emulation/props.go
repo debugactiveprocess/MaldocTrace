@@ -3,8 +3,8 @@ package emulation
 import (
 	"strings"
 
-	"maldoctrace/extractor"
-	"maldoctrace/vba/runtime"
+	"github.com/debugactiveprocess/MaldocTrace/extractor"
+	"github.com/debugactiveprocess/MaldocTrace/vba/runtime"
 )
 
 // Document properties and variables are a common payload hiding place:

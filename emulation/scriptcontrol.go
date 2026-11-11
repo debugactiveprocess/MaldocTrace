@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"strings"
 
-	"maldoctrace/vba/runtime"
+	"github.com/debugactiveprocess/MaldocTrace/vba/runtime"
 )
 
 // scriptControl models MSScriptControl.ScriptControl. Code passed to AddCode

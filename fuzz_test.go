@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"maldoctrace/internal/cfbtest"
-	"maldoctrace/vba/parser"
-	"maldoctrace/vba/runtime"
+	"github.com/debugactiveprocess/MaldocTrace/internal/cfbtest"
+	"github.com/debugactiveprocess/MaldocTrace/vba/parser"
+	"github.com/debugactiveprocess/MaldocTrace/vba/runtime"
 )
 
 // FuzzAnalyzeVBA drives lexer, parser, static deobfuscation and emulation

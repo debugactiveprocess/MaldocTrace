@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"maldoctrace/report"
+	"github.com/debugactiveprocess/MaldocTrace/report"
 )
 
 func testReport() *report.Report {

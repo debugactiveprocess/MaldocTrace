@@ -50,7 +50,15 @@ Prebuilt binaries for **Windows**, **Linux** and **macOS** (x64 and ARM64) are o
 
 ## Build
 
-Requires Go 1.23+.
+Requires Go 1.23+. The only dependency is `golang.org/x/text`.
+
+Install a tagged release:
+
+```bash
+go install github.com/debugactiveprocess/MaldocTrace/cmd/maldoctrace@v0.2.1
+```
+
+Or build from a release tarball or a clone:
 
 ```bash
 go build -o maldocTrace ./cmd/maldoctrace
@@ -407,3 +415,7 @@ Inputs that made the fuzzers fail are kept under `testdata/fuzz/` as permanent r
    ```
 
 The [release workflow](.github/workflows/release.yml) then runs the tests and builds static binaries for Windows, Linux and macOS (amd64/arm64), stamping each with the version from the tag. It publishes a GitHub Release with the archives, `checksums.txt` and that CHANGELOG section as notes. A tag without a matching CHANGELOG section fails instead of publishing an empty release.
+
+## License
+
+MaldocTrace is released under the [Apache License 2.0](LICENSE).

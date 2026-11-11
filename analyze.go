@@ -11,15 +11,15 @@ import (
 	"strings"
 	"time"
 
-	"maldoctrace/emulation"
-	"maldoctrace/extractor"
-	"maldoctrace/report"
-	"maldoctrace/vba/runtime"
+	"github.com/debugactiveprocess/MaldocTrace/emulation"
+	"github.com/debugactiveprocess/MaldocTrace/extractor"
+	"github.com/debugactiveprocess/MaldocTrace/report"
+	"github.com/debugactiveprocess/MaldocTrace/vba/runtime"
 )
 
 // Version is the tool version reported in output. Release builds set it
 // from the git tag: -ldflags "-X maldoctrace.Version=1.2.3".
-var Version = "0.2.0"
+var Version = "0.2.1"
 
 // Options configures an analysis run.
 type Options struct {

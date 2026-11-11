@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"maldoctrace/internal/cfbtest"
+	"github.com/debugactiveprocess/MaldocTrace/internal/cfbtest"
 )
 
 func TestFtabTable(t *testing.T) {

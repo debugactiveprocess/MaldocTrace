@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"maldoctrace/extractor"
-	"maldoctrace/internal/cfbtest"
-	"maldoctrace/report"
+	"github.com/debugactiveprocess/MaldocTrace/extractor"
+	"github.com/debugactiveprocess/MaldocTrace/internal/cfbtest"
+	"github.com/debugactiveprocess/MaldocTrace/report"
 )
 
 func commandLines(r *report.Report) []string {

@@ -3,7 +3,7 @@ package runtime
 import (
 	"strings"
 
-	"maldoctrace/vba/ast"
+	"github.com/debugactiveprocess/MaldocTrace/vba/ast"
 )
 
 func (rt *Interp) exec(s ast.Stmt) {

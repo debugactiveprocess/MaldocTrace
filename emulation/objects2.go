@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"strings"
 
-	"maldoctrace/vba/runtime"
+	"github.com/debugactiveprocess/MaldocTrace/vba/runtime"
 )
 
 type folderObject struct {
