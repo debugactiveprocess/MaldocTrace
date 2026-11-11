@@ -5,6 +5,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-11
+
+Excel 4.0 macros, static detection of macro-less attacks (template injection, DDE, OLE, Equation Editor exploits in RTF), payloads hidden in cells and document properties, and VBA stomping detection.
+
+### Downloads
+
+| Platform | Archive |
+|---|---|
+| Windows x64 / ARM64 | `maldocTrace_0.2.0_windows_amd64.zip`, `maldocTrace_0.2.0_windows_arm64.zip` |
+| Linux x64 / ARM64 | `maldocTrace_0.2.0_linux_amd64.tar.gz`, `maldocTrace_0.2.0_linux_arm64.tar.gz` |
+| macOS Intel / Apple Silicon | `maldocTrace_0.2.0_darwin_amd64.tar.gz`, `maldocTrace_0.2.0_darwin_arm64.tar.gz` |
+
+You can verify downloads against `checksums.txt` (SHA-256). The binaries are static and have no dependencies. The macOS builds are not notarized, so remove the quarantine flag before running them: `xattr -d com.apple.quarantine maldocTrace`.
+
 ### Added
 
 - **Excel 4.0 (XLM) macros**:
