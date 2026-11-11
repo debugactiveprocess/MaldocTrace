@@ -5,35 +5,42 @@ package report
 import "maldoctrace/vba/runtime"
 
 // SchemaVersion is the version of the JSON schema emitted by this tool.
-const SchemaVersion = "1.2.0"
+const SchemaVersion = "1.3.0"
 
 // Report is the top-level, self-contained analysis result for one file.
 type Report struct {
-	Commands          []Command        `json:"commands"`
-	DecodedPayloads   []DecodedPayload `json:"decoded_payloads"`
-	ScriptCalls       []ScriptCall     `json:"script_calls"`
-	Indicators        []IOC            `json:"indicators"`
-	OperationalStatus string           `json:"operational_status"`
-	SemanticCoverage  string           `json:"semantic_coverage"`
-	SchemaVersion     string           `json:"schema_version"`
-	ToolVersion       string           `json:"tool_version"`
-	File              FileInfo         `json:"file"`
-	Format            string           `json:"format"`
-	Status            string           `json:"status"` // complete | partial | failed | timeout
-	Macros            string           `json:"macros"` // present | absent | unknown
-	Encrypted         bool             `json:"encrypted"`
-	Coverage          Coverage         `json:"coverage"`
-	Projects          []Project        `json:"projects,omitempty"`
-	Modules           []Module         `json:"modules,omitempty"`
-	EntryPoints       []EntryPoint     `json:"entry_points,omitempty"`
-	Decoded           []DecodedStr     `json:"decoded_strings,omitempty"`
-	Events            []Event          `json:"events,omitempty"`
-	IOCs              []IOC            `json:"iocs,omitempty"`
-	Artifacts         []Artifact       `json:"artifacts,omitempty"`
-	Diagnostics       []Diagnostic     `json:"diagnostics,omitempty"`
-	LimitsHit         []string         `json:"limits_hit,omitempty"`
-	DurationMs        int64            `json:"duration_ms"`
-	Stats             Stats            `json:"stats"`
+	Commands        []Command        `json:"commands"`
+	DecodedPayloads []DecodedPayload `json:"decoded_payloads"`
+	ScriptCalls     []ScriptCall     `json:"script_calls"`
+	// StaticFindings are structural observations that need no emulation:
+	// template injection, external OLE links, DDE fields, VBA stomping.
+	StaticFindings []StaticFinding `json:"static_findings"`
+	// MacroSheets lists Excel 4.0 (XLM) macro sheets and their formulas.
+	MacroSheets []MacroSheet `json:"macro_sheets,omitempty"`
+	// Properties are document properties and variables macros can read.
+	Properties        []Property   `json:"document_properties,omitempty"`
+	Indicators        []IOC        `json:"indicators"`
+	OperationalStatus string       `json:"operational_status"`
+	SemanticCoverage  string       `json:"semantic_coverage"`
+	SchemaVersion     string       `json:"schema_version"`
+	ToolVersion       string       `json:"tool_version"`
+	File              FileInfo     `json:"file"`
+	Format            string       `json:"format"`
+	Status            string       `json:"status"` // complete | partial | failed | timeout
+	Macros            string       `json:"macros"` // present | absent | unknown
+	Encrypted         bool         `json:"encrypted"`
+	Coverage          Coverage     `json:"coverage"`
+	Projects          []Project    `json:"projects,omitempty"`
+	Modules           []Module     `json:"modules,omitempty"`
+	EntryPoints       []EntryPoint `json:"entry_points,omitempty"`
+	Decoded           []DecodedStr `json:"decoded_strings,omitempty"`
+	Events            []Event      `json:"events,omitempty"`
+	IOCs              []IOC        `json:"iocs,omitempty"`
+	Artifacts         []Artifact   `json:"artifacts,omitempty"`
+	Diagnostics       []Diagnostic `json:"diagnostics,omitempty"`
+	LimitsHit         []string     `json:"limits_hit,omitempty"`
+	DurationMs        int64        `json:"duration_ms"`
+	Stats             Stats        `json:"stats"`
 }
 
 // FileInfo identifies the analysed input.
@@ -169,4 +176,41 @@ type Stats struct {
 	IOCCount           int `json:"ioc_count"`
 	DecodedStringCount int `json:"decoded_string_count"`
 	LoopLimitHits      int `json:"loop_limit_hits"`
+}
+
+// StaticFinding is a structural observation made without emulation.
+type StaticFinding struct {
+	ID       string `json:"id"`
+	Kind     string `json:"kind"`     // template_injection | external_ole | dde | external_link | vba_stomping | ...
+	Severity string `json:"severity"` // high | medium | low | info
+	Location string `json:"location"` // container part or stream
+	Target   string `json:"target,omitempty"`
+	Detail   string `json:"detail,omitempty"`
+	// Evidence lists supporting values (e.g. p-code strings missing from source).
+	Evidence []string `json:"evidence,omitempty"`
+}
+
+// MacroSheet is an Excel 4.0 macro sheet.
+type MacroSheet struct {
+	Name       string       `json:"name"`
+	Visibility string       `json:"visibility"` // visible | hidden | very_hidden
+	Source     string       `json:"source,omitempty"`
+	Formulas   []XLMFormula `json:"formulas"`
+}
+
+// XLMFormula is one formula cell of a macro sheet.
+type XLMFormula struct {
+	Cell    string `json:"cell"`
+	Formula string `json:"formula"`
+	Value   string `json:"value,omitempty"`
+	// Undecoded is set when the formula tokens could not be fully decompiled.
+	Undecoded bool `json:"undecoded,omitempty"`
+}
+
+// Property is a document property or document variable.
+type Property struct {
+	Name   string `json:"name"`
+	Value  string `json:"value"`
+	Kind   string `json:"kind"` // builtin | custom | variable
+	Source string `json:"source,omitempty"`
 }

@@ -21,6 +21,8 @@ const (
 	// maxBinaryDisplay bounds hex shown for large binaries (e.g. a PE);
 	// shellcode-sized payloads are still shown in full.
 	maxBinaryDisplay = 4096
+	// maxFormulaLines bounds formula listings in text output.
+	maxFormulaLines = 300
 )
 
 // RenderText renders a human-readable summary with default options.
@@ -40,6 +42,26 @@ func RenderTextWith(r *Report, opt TextOptions) string {
 	// payload or script call is referenced by that ID elsewhere.
 	eventRefs := map[string][]string{}
 	abbr := newAbbreviator(r)
+	if len(r.StaticFindings) > 0 {
+		fmt.Fprintln(&b, "\n-- Static findings --")
+		for _, f := range r.StaticFindings {
+			fmt.Fprintf(&b, "  [%s] %s (%s)\n", f.ID, f.Kind, f.Severity)
+			if f.Target != "" {
+				fmt.Fprintf(&b, "      Target: %s\n", printable(f.Target, 2*valuePreview, "static_findings"))
+			}
+			fmt.Fprintf(&b, "      Location: %s\n", f.Location)
+			if f.Detail != "" {
+				fmt.Fprintf(&b, "      Detail: %s\n", f.Detail)
+			}
+			for i, ev := range f.Evidence {
+				if i == 10 {
+					fmt.Fprintf(&b, "      ... %d more in JSON static_findings\n", len(f.Evidence)-i)
+					break
+				}
+				fmt.Fprintf(&b, "      Evidence: %s\n", printable(abbr(ev), valuePreview, "static_findings"))
+			}
+		}
+	}
 	if len(r.Commands) > 0 {
 		fmt.Fprintln(&b, "\n-- Recovered commands --")
 		for _, c := range r.Commands {
@@ -111,6 +133,48 @@ func RenderTextWith(r *Report, opt TextOptions) string {
 			fmt.Fprintf(&b, "      Source: %s\n      Execution: %s\n", srcText(c.Source), c.Execution)
 		}
 	}
+	for _, ms := range r.MacroSheets {
+		fmt.Fprintf(&b, "\n-- Excel 4.0 macro sheet %q (%s, %d formulas) --\n", ms.Name, strings.ReplaceAll(ms.Visibility, "_", " "), len(ms.Formulas))
+		for i, f := range ms.Formulas {
+			if i == maxFormulaLines {
+				fmt.Fprintf(&b, "  ... %d more in JSON macro_sheets\n", len(ms.Formulas)-i)
+				break
+			}
+			mark := ""
+			if f.Undecoded {
+				mark = "  (not fully decompiled)"
+			}
+			fmt.Fprintf(&b, "  %-7s %s%s\n", f.Cell, printable(f.Formula, 2*valuePreview, "macro_sheets"), mark)
+		}
+	}
+	var written []DecodedStr
+	for _, d := range r.Decoded {
+		if strings.HasPrefix(d.Method, "XLM ") {
+			written = append(written, d)
+		}
+	}
+	if len(written) > 0 {
+		fmt.Fprintln(&b, "\n-- XLM formulas written at run time (deobfuscated) --")
+		for i, d := range written {
+			if i == maxFormulaLines {
+				fmt.Fprintf(&b, "  ... %d more in JSON decoded_strings\n", len(written)-i)
+				break
+			}
+			fmt.Fprintf(&b, "  %s!%s  %s\n", d.Module, d.Proc, printable(abbr(d.Value), 2*valuePreview, "decoded_strings"))
+		}
+	}
+	var props []Property
+	for _, p := range r.Properties {
+		if p.Kind != "builtin" || len(p.Value) >= 64 {
+			props = append(props, p)
+		}
+	}
+	if len(props) > 0 {
+		fmt.Fprintln(&b, "\n-- Document properties and variables --")
+		for _, p := range props {
+			fmt.Fprintf(&b, "  [%s] %s = %s\n", p.Kind, p.Name, printable(abbr(p.Value), valuePreview, "document_properties"))
+		}
+	}
 	if r.Encrypted {
 		fmt.Fprintf(&b, "Encrypted: yes (no VBA extracted; absence is NOT evidence of absence)\n")
 	}
@@ -121,7 +185,11 @@ func RenderTextWith(r *Report, opt TextOptions) string {
 		}
 		fmt.Fprintf(&b, "\n-- Modules --\n")
 		for _, m := range r.Modules {
-			fmt.Fprintf(&b, "  %s  (%s, %d chars)\n", m.Name, m.Type, m.CodeLen)
+			unit := "chars"
+			if strings.HasPrefix(m.Type, "xlm") {
+				unit = "cells"
+			}
+			fmt.Fprintf(&b, "  %s  (%s, %d %s)\n", m.Name, m.Type, m.CodeLen, unit)
 		}
 	}
 	if len(r.Events) > 0 {

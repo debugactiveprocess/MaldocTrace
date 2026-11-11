@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"maldoctrace/internal/cfbtest"
 	"maldoctrace/vba/parser"
 	"maldoctrace/vba/runtime"
 )
@@ -37,6 +38,11 @@ func FuzzAnalyzeVBA(f *testing.F) {
 func FuzzAnalyzeBytes(f *testing.F) {
 	f.Add([]byte{0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1})
 	f.Add([]byte("PK\x03\x04"))
+	f.Add(cfbtest.MacroWorkbook("M", true, 0, 0, "x", []cfbtest.Formula{
+		{Row: 0, Col: 0, Rgce: cfbtest.Cat(cfbtest.PtgStr("calc"), cfbtest.PtgFuncVar(1, 110))},
+		{Row: 1, Col: 0, Rgce: cfbtest.Cat(cfbtest.PtgRef(0, 0), cfbtest.PtgFunc(53))},
+	}))
+	f.Add([]byte(`{\rtf1{\object\objupdate\objdata 01050000020000000b000000457175617469}{\*\template http://x/t}}`))
 	opts := Options{Timeout: 2 * time.Second, RuntimeLimits: runtime.Limits{MaxSteps: 5000, MaxLoopIterations: 200, MaxCallDepth: 30}}
 	f.Fuzz(func(t *testing.T, data []byte) {
 		r := AnalyzeFromBytes(nil, data, "fuzz.bin", opts)

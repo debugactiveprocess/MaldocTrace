@@ -68,6 +68,14 @@ func (o *appObject) Get(name string) runtime.Value {
 	if strings.EqualFold(name, "visible") || strings.EqualFold(name, "displayalerts") {
 		return runtime.VBool(false)
 	}
+	switch strings.ToLower(name) {
+	case "activesheet":
+		return runtime.VObject(&sheetObject{h: o.h, s: o.h.workbook().active()})
+	case "sheets", "worksheets":
+		return runtime.VObject(&sheetsCollection{h: o.h, onlyWorksheets: strings.EqualFold(name, "worksheets")})
+	case "activeworkbook", "thisworkbook", "activedocument":
+		return runtime.VObject(&documentObject{h: o.h, name: name})
+	}
 	return runtime.VEmpty
 }
 func (o *appObject) Set(name string, v runtime.Value) {
@@ -76,8 +84,15 @@ func (o *appObject) Set(name string, v runtime.Value) {
 func (o *appObject) Call(name string, args []runtime.Value) runtime.Value {
 	switch strings.ToLower(name) {
 	case "run":
+		if v, ok := o.h.runXLMMacro(argString(args, 0)); ok {
+			return v
+		}
 		o.h.rec("application_run", args, nil)
 		return runtime.VEmpty
+	case "executeexcel4macro":
+		return o.h.ExecuteExcel4Macro(argString(args, 0))
+	case "range", "cells", "sheets", "worksheets":
+		return (&globalExcel{h: o.h, name: strings.ToLower(name)}).Call("", args)
 	case "quit":
 		return runtime.VEmpty
 	}

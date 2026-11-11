@@ -1,13 +1,28 @@
 # MaldocTrace
 
-MaldocTrace is a defensive analyzer for malicious Office macros, written in Go. It extracts VBA from Office documents, rebuilds obfuscated strings, and emulates the macros in a fully simulated environment. The output reports what the document *would* do: the commands it would run, the payloads it would decode and the files it would drop. All of it is backed by evidence that points to the module, procedure and line that produced it.
+MaldocTrace is a defensive analyzer for malicious Office documents, written in Go. It extracts VBA and Excel 4.0 (XLM) macros, rebuilds obfuscated strings, and emulates the macros in a fully simulated environment. The output reports what the document *would* do: the commands it would run, the payloads it would decode and the files it would drop. All of it is backed by evidence that points to the module, procedure and line (or sheet and cell) that produced it.
+
+Documents with no macros at all are covered too. Remote template injection, DDE fields, linked and embedded OLE objects (including Equation Editor exploits in RTF), hyperlinked lure images and VBA stomping are reported as static findings.
 
 
 ---
 
 ## Features
 
-- **Container extraction**: OLE/CFB (`.doc`, `.xls`, `.ppt`), OOXML (`.docm`, `.xlsm`, `.pptm`) and raw VBA text. Includes MS-OVBA decompression, UserForm control properties, and resource limits against zip bombs and malformed containers.
+- **Container extraction**: OLE/CFB (`.doc`, `.xls`, `.ppt`), OOXML (`.docx`, `.docm`, `.xlsx`, `.xlsm`, `.pptm`), RTF and raw VBA text. Includes MS-OVBA decompression, UserForm control properties, and resource limits against zip bombs and malformed containers.
+- **Excel 4.0 (XLM) macros**:
+  - macro sheets from `.xls` (BIFF8 formulas decompiled from parsed tokens, using the MS-XLS function tables) and `.xlsm`, including hidden and very hidden sheets;
+  - an XLM interpreter that starts at `Auto_Open` (any name Excel would run). It follows `GOTO`, `RUN`, `IF`, `WHILE`/`FOR`/`NEXT`, `ON.TIME` and `RETURN`, and applies `FORMULA`/`FORMULA.FILL`/`SET.VALUE`/`SET.NAME`, so self-decoding macros rebuild their real code;
+  - simulated `EXEC`, `CALL`, `REGISTER` and aliases (`URLDownloadToFileA`, `ShellExecuteA`, `WinExec`, `CreateProcessA`) and `FOPEN`/`FWRITE`. Anti-sandbox probes (`GET.WORKSPACE`, `GET.WINDOW`, `GET.CELL`) get plausible answers, flagged as simulated;
+  - the formulas written at run time are listed as the deobfuscated macro.
+- **Static findings** (no emulation needed):
+  - remote template injection (`attachedTemplate`, RTF `\*\template`);
+  - external OLE objects, including MHTML (CVE-2021-40444) and `ms-msdt` (Follina) monikers;
+  - DDE/DDEAUTO fields (including `QUOTE`-encoded ones) and Excel DDE formulas and links;
+  - RTF embedded objects decoded the way Word reads them (obfuscated `\objdata`, corrupted OLE1 headers), with Equation Editor exploit detection: the MTEF FONT overflow (CVE-2017-11882 / CVE-2018-0802) and the MATRIX overflow (CVE-2018-0798), plus extraction of the bytes that follow;
+  - hyperlinks on pictures and cells, and QR-code lures;
+  - **VBA stomping**: string literals compiled into the p-code but missing from the source mean the source shown is not the code Office runs. Those literals are reported and scanned for indicators.
+- **Payload hiding places**: cell values (`Sheets("x").Range("A1")`, `Cells(r, c)`), document properties (`BuiltInDocumentProperties("Comments")`, custom properties), document variables (`ActiveDocument.Variables`) and UserForm controls (`TextBox.Text`, `Label.Caption`) are all available to the emulated macro.
 - **Document body text**: extracted from Word 97-2003 (piece table) and `.docx`. Droppers often hide their payload in the document body and read it back through `ActiveDocument.Paragraphs(n).Range.Text`.
 - **VBA interpreter**: a lexer, parser and bounded interpreter covering the subset of VBA that malware relies on: procedures, `ByRef` parameters, named arguments, conditional compilation, loops, arrays and the string built-ins.
 - **Static deobfuscation**: constant folding of `Chr`/`StrReverse`/`Replace`/concatenation. Each value records how it was rebuilt (`concatenation+Chr`, `StrReverse`, ...).
@@ -16,6 +31,7 @@ MaldocTrace is a defensive analyzer for malicious Office macros, written in Go. 
   - files and network: `FileSystemObject`, `ADODB.Stream`, `XMLHTTP`/`WinHttp`
   - script engines: `MSScriptControl.ScriptControl`
   - Word's document model: `Paragraphs`, `Range`, `Delete`, `SaveAs2`
+  - Excel's object model (`Sheets`, `Worksheets`, `Range`, `Cells`, `Offset`), shared with the XLM engine, and `ExecuteExcel4Macro`/`Application.Run` into macro sheets
   - declared Windows APIs, with simulated `VarPtr` pointers
 - **Payload recovery**:
   - PowerShell `-EncodedCommand` decoding, with static folding of `'ht'+'tp'` concatenations before URLs are extracted
@@ -60,7 +76,7 @@ maldocTrace version
 | Option | Description |
 |---|---|
 | `--format text` | Human-readable report (default). |
-| `--format json` | Full, versioned JSON report (schema `1.2.0`). It always includes indicators, diagnostics, decoded strings and full payload content. |
+| `--format json` | Full, versioned JSON report (schema `1.3.0`). It always includes indicators, diagnostics, decoded strings and full payload content. |
 | `--format jsonl` | One JSON report per line, for batch analysis with `--recursive`. |
 | `--show-strings` | Text format only. Lists the reconstructed strings, deduplicated, with every module/procedure/line occurrence and the reconstruction method. |
 | `--dump-payloads DIR` | Writes decoded payloads and files dropped by the macro to `DIR/<input-sha256>/`, with a `manifest.json`. Files get neutral extensions (`.bin`, `.txt`), so nothing can run on a double-click. Existing files are never overwritten. |
@@ -281,6 +297,35 @@ Operational: completed | Semantic coverage: partial
 Reconstructed strings: 98 (hidden; use --show-strings, or see decoded_strings in JSON)
 ```
 
+### 5. Equation Editor exploit in an obfuscated RTF (no macros)
+
+The RTF hides an `Equation.3` object behind junk control-word parameters, ignorable groups and a corrupted OLE1 header. MaldocTrace decodes `\objdata` the way Word does. It then finds the oversized MTEF `MATRIX` record and extracts the bytes that follow it, which are the first-stage shellcode.
+
+```
+MaldocTrace 0.2.0 (schema 1.3.0)
+File: Project No.88719_ECOFIX.rtf.bin (123376 bytes)
+SHA-256: 4488de9b8c97006d9784b08dd4d8d41de2473253dd4d58e93e8b2a68eb6a97db
+Format: rtf
+Status: complete | Macros: absent
+Operational: completed | Semantic coverage: supported_subset
+
+-- Static findings --
+  [finding-1] ole_link (medium)
+      Location: rtf offset 14547
+      Detail: object declared as a link (\objautlink/\objlink): Word refreshes it from its source
+  [finding-2] ole_autoupdate (medium)
+      Location: rtf offset 14610
+      Detail: \objupdate makes Word load the object when the document opens, without user interaction
+  [finding-3] embedded_ole (high)
+      Target: EquATioN.3
+      Location: rtf \objdata at offset 14584
+      Detail: embedded OLE object of class EquATioN.3 (1414 bytes); Equation Editor object (EQNEDT32.EXE, a frequent exploit target); MTEF MATRIX record declares 236 rows x 30 columns, overflowing Equation Editor's partition buffer (CVE-2018-0798)
+  [finding-4] equation_editor_exploit (high)
+      Target: 0000…29c34400000000e844000000eb42eb60e99a000000e99d0000009c515681e9067e0000… [truncated display: 2048 bytes; full value in JSON static_findings]
+      Location: rtf \objdata at offset 14584
+      Detail: MTEF MATRIX record declares 236 rows x 30 columns, overflowing Equation Editor's partition buffer (CVE-2018-0798); target is the bytes after the malformed record (hex; usually the first-stage shellcode)
+```
+
 ### Dumping payloads
 
 ```
@@ -301,6 +346,9 @@ For every file, `manifest.json` records the evidence ID, payload kind, detected 
 
 | Field | Content |
 |---|---|
+| `static_findings` | Template injection, external/embedded OLE objects, DDE, Equation Editor exploits, hyperlinks, hidden macro sheets and VBA stomping, each with kind, severity, location, target and evidence. |
+| `macro_sheets` | Excel 4.0 macro sheets with visibility and every formula (cell, formula text, cached value). |
+| `document_properties` | Built-in and custom document properties and document variables. |
 | `commands` | Recovered command lines and in-memory payload sinks, with receiver, source location, call chain and evidence IDs. |
 | `decoded_payloads` | Decoded PowerShell, scripts, shellcode buffers and certutil outputs. Each payload has its raw and normalized content, encoding chain, sha256, file type and provenance. |
 | `script_calls` | Script-engine invocations (`ScriptControl.Run/Eval/ExecuteStatement`). |
@@ -318,15 +366,17 @@ The text report omits indicators and diagnostics for readability. The JSON repor
 
 ```
 cmd/maldoctrace/   CLI (inspect, extract, analyze, payload dumping)
-extractor/         CFB/OOXML containers, MS-OVBA, UserForms, Word body text
+extractor/         CFB/OOXML/RTF containers, MS-OVBA, UserForms, Word body text, BIFF8 workbooks
+                   and formula decompiler, document properties, external references
 vba/lexer          VBA tokenizer
 vba/parser         VBA parser (incl. conditional compilation, named arguments)
 vba/runtime        Bounded VBA interpreter, built-ins, simulated pointers
 deobfuscation/     Static constant folding with provenance
-emulation/         Simulated COM objects, WMI, ScriptControl, Word document model
+emulation/         Simulated COM objects, WMI, ScriptControl, Word and Excel object models, XLM engine
 payload/           PowerShell, UTF-7, certutil decoding, concatenation folding, binary identification
 indicators/        IOC extraction
 report/            JSON schema and text renderer
+internal/cfbtest   Builders for synthetic OLE files and BIFF8 macro workbooks used by tests
 ```
 
 ## Testing
@@ -340,6 +390,8 @@ Regression tests that use real samples look for them in `samples/` and are skipp
 ```bash
 go test -run '^$' -fuzz '^FuzzAnalyzeVBA$' -fuzztime 60s .
 go test -run '^$' -fuzz '^FuzzAnalyzeBytes$' -fuzztime 60s .
+go test -run '^$' -fuzz '^FuzzParseXLM$' -fuzztime 60s ./emulation
+go test -run '^$' -fuzz '^FuzzBIFF$' -fuzztime 60s ./extractor   # also FuzzDecompile, FuzzRTF
 ```
 
 Inputs that made the fuzzers fail are kept under `testdata/fuzz/` as permanent regression cases.

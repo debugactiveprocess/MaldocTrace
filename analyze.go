@@ -89,7 +89,7 @@ func AnalyzeFromBytes(parent context.Context, data []byte, path string, opts Opt
 		r.Macros = "unknown"
 		r.Status = "partial"
 		r.Diagnostics = append(r.Diagnostics, report.Diagnostic{Severity: "warning", Stage: "extract", Message: "container is encrypted; macro presence is unknown"})
-	} else if res.HasModules() {
+	} else if res.HasModules() || res.HasXLM() {
 		r.Macros = "present"
 	} else if res.Format == extractor.FormatUnknown {
 		r.Macros = "unknown"
@@ -107,7 +107,13 @@ func AnalyzeFromBytes(parent context.Context, data []byte, path string, opts Opt
 		r.LimitsHit = append(r.LimitsHit, l)
 	}
 
-	if res.HasModules() {
+	for _, s := range res.Sheets {
+		if s.Kind == "macrosheet" {
+			r.Modules = append(r.Modules, report.Module{Name: s.Name, Type: "xlm macrosheet (" + s.Visibility + ")", SourceFile: s.Source, CodeLen: len(s.Cells)})
+		}
+	}
+	runStage(r, "static", func() { staticAnalysis(res, r) })
+	if res.HasModules() || res.HasXLM() {
 		runStage(r, "emulation", func() { runEmulation(ctx, res, r, opts) })
 	}
 
