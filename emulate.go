@@ -44,6 +44,8 @@ func runEmulation(ctx context.Context, res *extractor.Result, r *report.Report, 
 	if res.DocumentText != "" {
 		host.SetDocumentText(res.DocumentText)
 	}
+	host.SetWorkbook(res.Sheets, res.Names)
+	host.SetProperties(res.Properties)
 	for _, f := range res.Forms {
 		host.RegisterForm(f.Module, f.Name, f.Properties, f.Stream, f.Offset)
 		for _, value := range f.Properties {
@@ -110,6 +112,19 @@ func runEmulation(ctx context.Context, res *extractor.Result, r *report.Report, 
 		r.Coverage.EmulatedProcedures++
 	}
 
+	for _, ep := range host.XLMEntries() {
+		if ctx.Err() != nil {
+			break
+		}
+		r.EntryPoints = append(r.EntryPoints, report.EntryPoint{Module: ep.Sheet, Proc: ep.Cell, Trigger: "XLM " + ep.Name})
+		host.RunXLM(ctx, ep.Sheet, ep.Cell)
+		r.Coverage.EmulatedProcedures++
+	}
+	for _, w := range host.XLMWrites() {
+		r.Decoded = append(r.Decoded, report.DecodedStr{Value: w.Text, Kind: "observed", Method: "XLM " + w.Via + " → " + w.Sheet + "!" + w.Cell, Module: w.Sheet, Proc: w.Cell})
+		scanEvidence(r, w.Text, "observed", "xlm-write:"+w.Sheet+"!"+w.Cell, report.Source{Module: w.Sheet, Proc: w.Cell})
+	}
+
 	for i, e := range host.Events() {
 		r.Events = append(r.Events, report.Event{
 			Receiver: e.Receiver, Method: e.Method, Arguments: e.Arguments, CallChain: e.CallChain, LocationInherited: e.LocationInherited,
@@ -146,7 +161,7 @@ func runEmulation(ctx context.Context, res *extractor.Result, r *report.Report, 
 
 	r.IOCs = dedupeIOCs(r.IOCs)
 	r.Stats = report.Stats{EventsRecorded: len(r.Events), IOCCount: len(r.IOCs), DecodedStringCount: len(r.Decoded)}
-	r.Coverage.FormatsSupported = []string{"doc", "docm", "dotm", "xls", "xlsm", "ppt", "pptm", "vba text"}
+	r.Coverage.FormatsSupported = []string{"doc", "docm", "dotm", "docx", "xls", "xlsm", "xlsx", "ppt", "pptm", "rtf", "vba text", "xlm (excel 4.0)"}
 	r.Coverage.SupportedFeatures = []string{
 		"Sub/Function", "Dim/Const", "If/Select", "For/ForEach/Do/While",
 		"Chr/ChrW/StrReverse/Replace/Split/Join/Mid/Left/Right/InStr",

@@ -39,6 +39,10 @@ type Host struct {
 	notes        []string
 	modules      map[string]bool // module names that exist (for GetObject)
 	doc          *wordDoc
+	wb           *workbook
+	props        []*docProp
+	xlm          *xlmEngine
+	xlmWrites    []XLMWrite
 }
 
 // NewHost creates an emulation host.
@@ -75,10 +79,14 @@ func (h *Host) Record(e *runtime.Event) {
 			e.Module = c.Module
 			e.Proc = c.Proc
 		}
-		e.Receiver = c.Receiver
-		e.Method = c.Method
-		e.Raw = c.Raw
-		e.Arguments = c.Arguments
+		// Events that describe their own call (XLM functions reached from
+		// VBA through ExecuteExcel4Macro) keep it; others take the VBA call.
+		if e.Receiver == "" {
+			e.Receiver = c.Receiver
+			e.Method = c.Method
+			e.Raw = c.Raw
+			e.Arguments = c.Arguments
+		}
 		for _, frame := range h.contexts {
 			e.CallChain = append(e.CallChain, frame.Module+"."+frame.Proc)
 		}
@@ -135,6 +143,10 @@ func (h *Host) GetObject(name string) runtime.Value {
 	switch low {
 	case "debug":
 		return runtime.VObject(&debugObject{})
+	case "activesheet":
+		return runtime.VObject(&sheetObject{h: h, s: h.workbook().active()})
+	case "range", "cells", "sheets", "worksheets", "executeexcel4macro":
+		return runtime.VObject(&globalExcel{h: h, name: low})
 	case "thisdocument", "activedocument", "thisworkbook", "activeworkbook", "workbook":
 		return runtime.VObject(&documentObject{h: h, name: name})
 	case "application", "excel", "word", "powerpoint":

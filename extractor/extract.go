@@ -25,7 +25,10 @@ type Module struct {
 	TextOffset uint32     `json:"text_offset,omitempty"`
 	CodeRaw    []byte     `json:"-"`
 	Code       string     `json:"code"`
-	SourceFile string     `json:"source_file,omitempty"`
+	// PCode is the compiled performance cache that precedes the compressed
+	// source in the module stream (empty when the module was never compiled).
+	PCode      []byte `json:"-"`
+	SourceFile string `json:"source_file,omitempty"`
 }
 
 // Project is a VBA project found in a container.
@@ -51,6 +54,29 @@ type Result struct {
 	// DocumentText is the main-story body text of a Word document (paragraphs
 	// end with "\r"); empty when the input is not a Word document.
 	DocumentText string `json:"-"`
+	// External lists references to content outside the file (template
+	// injection, linked OLE objects, DDE fields) found by static inspection.
+	External []ExternalRef `json:"external,omitempty"`
+	// Sheets holds Excel worksheets and macro sheets with their cells.
+	Sheets []*Sheet `json:"sheets,omitempty"`
+	// Names are workbook defined names (Auto_Open and friends).
+	Names []DefinedName `json:"names,omitempty"`
+	// Properties are document properties and document variables.
+	Properties []DocProperty `json:"properties,omitempty"`
+}
+
+// HasXLM reports whether an Excel 4.0 macro sheet with formulas was found.
+func (r *Result) HasXLM() bool {
+	for _, s := range r.Sheets {
+		if s.Kind == "macrosheet" {
+			for _, c := range s.Cells {
+				if c.Formula != "" {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 // HasModules reports whether any module source was extracted.
@@ -86,6 +112,7 @@ func Extract(ctx context.Context, data []byte, lim *Limits) (*Result, error) {
 		} else if text != "" {
 			res.DocumentText = text
 		}
+		scanOOXML(data, &l, res)
 		files, diags, err := openZip(data, &l)
 		res.Diagnostics = append(res.Diagnostics, diags...)
 		if err != nil {
@@ -99,6 +126,8 @@ func Extract(ctx context.Context, data []byte, lim *Limits) (*Result, error) {
 				res.addDiag("error", "extract", fmt.Sprintf("nested OLE %s: %v", nf.name, err))
 			}
 		}
+	case FormatRTF:
+		scanRTF(data, res)
 	case FormatVBA:
 		code := string(data)
 		res.Modules = append(res.Modules, &Module{
@@ -133,6 +162,18 @@ func extractFromCFB(ctx context.Context, data []byte, sourceFile string, lim *Li
 			res.addDiag("info", "doctext", "document text not extracted: "+err.Error())
 		} else {
 			res.DocumentText = text
+		}
+	}
+	if sourceFile == "" {
+		readOLEProperties(cfb, res)
+		if res.DocumentText != "" {
+			scanFieldCodes(res.DocumentText, "WordDocument", res)
+		}
+		for _, name := range []string{"Workbook", "Book"} {
+			if cfb.find(name) != nil {
+				extractBIFF(cfb, name, res)
+				break
+			}
 		}
 	}
 	storages := cfb.storageByLeafName("VBA")
@@ -200,7 +241,7 @@ func extractVBAProject(ctx context.Context, cfb *cfbReader, vbaRoot, sourceFile 
 			return
 		}
 		rm := &proj.modules[i]
-		codeRaw, code, ok := readModuleSource(cfb, vbaRoot, rm, proj.codepage, lim, res)
+		codeRaw, code, pcode, ok := readModuleSource(cfb, vbaRoot, rm, proj.codepage, lim, res)
 		if !ok {
 			continue
 		}
@@ -213,6 +254,7 @@ func extractVBAProject(ctx context.Context, cfb *cfbReader, vbaRoot, sourceFile 
 			TextOffset: rm.textOffset,
 			CodeRaw:    codeRaw,
 			Code:       code,
+			PCode:      pcode,
 			SourceFile: sourceFile,
 		}
 		m.FileName = m.Name + moduleExt(rm.typ)
@@ -221,7 +263,7 @@ func extractVBAProject(ctx context.Context, cfb *cfbReader, vbaRoot, sourceFile 
 }
 
 // readModuleSource locates and decompresses a module source stream.
-func readModuleSource(cfb *cfbReader, vbaRoot string, rm *rawModule, cp uint16, lim *Limits, res *Result) ([]byte, string, bool) {
+func readModuleSource(cfb *cfbReader, vbaRoot string, rm *rawModule, cp uint16, lim *Limits, res *Result) ([]byte, string, []byte, bool) {
 	names := []string{rm.streamNameUni, rm.streamName, rm.nameUni, rm.name}
 	var streamBytes []byte
 	for _, n := range names {
@@ -246,7 +288,7 @@ func readModuleSource(cfb *cfbReader, vbaRoot string, rm *rawModule, cp uint16, 
 	}
 	if streamBytes == nil {
 		res.addDiag("warning", "extract", fmt.Sprintf("module %q source stream not found", rm.name))
-		return nil, "", false
+		return nil, "", nil, false
 	}
 	off := int(rm.textOffset)
 	if off < 0 || off > len(streamBytes) {
@@ -255,14 +297,14 @@ func readModuleSource(cfb *cfbReader, vbaRoot string, rm *rawModule, cp uint16, 
 	codeRaw, err := decompressOVBA(streamBytes[off:], lim.MaxDecompressed)
 	if err != nil {
 		res.addDiag("warning", "extract", fmt.Sprintf("module %q decompression failed: %v", rm.name, err))
-		return nil, "", false
+		return nil, "", nil, false
 	}
 	if int64(len(codeRaw)) > lim.MaxModuleSize {
 		res.addDiag("warning", "extract", fmt.Sprintf("module %q exceeds MaxModuleSize", rm.name))
 		res.LimitsHit = append(res.LimitsHit, "MaxModuleSize")
-		return nil, "", false
+		return nil, "", nil, false
 	}
-	return codeRaw, decodeCodepage(cp, codeRaw), true
+	return codeRaw, decodeCodepage(cp, codeRaw), streamBytes[:off], true
 }
 
 func firstNonEmpty(vals ...string) string {

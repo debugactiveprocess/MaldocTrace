@@ -212,6 +212,16 @@ func (o *documentObject) Get(name string) runtime.Value {
 		return o.h.newRange(0, len(d.text))
 	case "paragraphs":
 		return runtime.VObject(&paragraphs{h: o.h})
+	case "sheets", "worksheets":
+		return runtime.VObject(&sheetsCollection{h: o.h, onlyWorksheets: strings.EqualFold(name, "worksheets")})
+	case "activesheet":
+		return runtime.VObject(&sheetObject{h: o.h, s: o.h.workbook().active()})
+	case "builtindocumentproperties":
+		return runtime.VObject(&propCollection{h: o.h, kind: "builtin"})
+	case "customdocumentproperties":
+		return runtime.VObject(&propCollection{h: o.h, kind: "custom"})
+	case "variables":
+		return runtime.VObject(&propCollection{h: o.h, kind: "variable"})
 	}
 	return runtime.VEmpty
 }
@@ -257,6 +267,17 @@ func (o *documentObject) CallNamed(name string, args []runtime.Value, names []st
 		return o.h.newRange(int(start), int(end))
 	case "paragraphs":
 		return o.h.paragraphValue(args)
+	case "sheets", "worksheets":
+		if len(args) == 0 {
+			return o.Get(name)
+		}
+		return o.h.lookupSheet(args[0], strings.EqualFold(name, "worksheets"))
+	case "builtindocumentproperties", "customdocumentproperties", "variables":
+		coll := o.Get(name)
+		if len(args) == 0 {
+			return coll
+		}
+		return coll.Obj.Call("", args)
 	case "saveas", "saveas2":
 		fileName, _ := arg(0, "FileName")
 		format, hasFormat := arg(1, "FileFormat")

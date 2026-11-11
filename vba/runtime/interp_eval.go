@@ -157,7 +157,19 @@ func (rt *Interp) assign(lhs ast.Expr, v Value) {
 				}
 			}
 		}
-		if obj := rt.eval(l.Fn); obj.Kind == KindObject && len(l.Args) == 1 {
+		obj := rt.eval(l.Fn)
+		if obj.Kind != KindObject {
+			return
+		}
+		// Assignment to an object's default member: Range("A1") = x,
+		// ActiveDocument.Variables("k") = x.
+		if target := rt.eval(l); target.Kind == KindObject {
+			if d, ok := target.Obj.(interface{ SetDefaultValue(Value) }); ok {
+				d.SetDefaultValue(v)
+				return
+			}
+		}
+		if len(l.Args) == 1 {
 			if id, ok := l.Args[0].(*ast.Ident); ok {
 				obj.Obj.Set(id.Name, v)
 			}

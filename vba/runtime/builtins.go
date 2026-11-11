@@ -70,6 +70,18 @@ func (rt *Interp) evalCall(c *ast.Call) Value {
 			}
 			return NewUnknown("array index out of range")
 		}
+		if rt.host != nil {
+			// Application-level globals used without a receiver, e.g.
+			// Range("A1"), Cells(1, 2), Sheets("x"), ExecuteExcel4Macro(...).
+			if g := rt.host.GetObject(fn.Name); g.Kind == KindObject {
+				_, done := rt.callContext(c, args, g.Obj.TypeName(), fn.Name)
+				v := g.Obj.Call("", args)
+				done()
+				if !v.IsUnknown() {
+					return v
+				}
+			}
+		}
 		return rt.unresolved(c, args, "", fn.Name, "unresolved call "+fn.Name)
 	case *ast.Member:
 		obj := rt.eval(fn.Obj)

@@ -14,6 +14,8 @@ const (
 	FormatOOXML
 	// FormatVBA is a plain-text VBA source file.
 	FormatVBA
+	// FormatRTF is a Rich Text Format document.
+	FormatRTF
 )
 
 func (f Format) String() string {
@@ -24,6 +26,8 @@ func (f Format) String() string {
 		return "ooxml"
 	case FormatVBA:
 		return "vba"
+	case FormatRTF:
+		return "rtf"
 	default:
 		return "unknown"
 	}
@@ -51,6 +55,10 @@ func Detect(data []byte) Format {
 		if len(data) >= len(m) && bytes.Equal(data[:len(m)], m) {
 			return FormatOOXML
 		}
+	}
+	// Word opens any file starting with `{\rt` as RTF (`{\rtf1` is not required).
+	if len(data) >= 4 && bytes.Equal(data[:4], []byte(`{\rt`)) {
+		return FormatRTF
 	}
 	if containsNUL := bytes.IndexByte(data, 0) >= 0; containsNUL {
 		return FormatUnknown

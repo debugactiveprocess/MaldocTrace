@@ -5,6 +5,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Excel 4.0 (XLM) macros**:
+  - macro sheets are read from `.xls` (BIFF8 formulas decompiled from parsed tokens with the MS-XLS Ftab/Cetab tables) and from `.xlsm`, including hidden and very hidden sheets;
+  - an XLM interpreter runs from `Auto_Open` with `GOTO`/`RUN`/`IF`/`WHILE`/`FOR`/`NEXT`/`ON.TIME`/`RETURN`, `FORMULA`/`FORMULA.FILL`/`SET.VALUE`/`SET.NAME`, and simulated `EXEC`, `CALL`, `REGISTER` (and aliases), `FOPEN`/`FWRITE`/`FCLOSE`;
+  - formulas written at run time are reported as the deobfuscated macro;
+  - VBA can reach XLM through `ExecuteExcel4Macro` and `Application.Run "Sheet!Cell"`.
+- **Static findings** (new `static_findings` section):
+  - remote template injection (`attachedTemplate`, RTF `\*\template`);
+  - external OLE objects, with MHTML (CVE-2021-40444) and `ms-msdt` (Follina) monikers flagged;
+  - DDE/DDEAUTO fields, including `QUOTE`-encoded and nested fields, in `.docx`, `.doc` and RTF, plus Excel DDE formulas and `ddeLink`s;
+  - `INCLUDEPICTURE`/`INCLUDETEXT`/`LINK` fields with remote targets;
+  - hidden macro sheets and XLM `Auto_Open` names;
+  - hyperlinks on pictures and cells (phishing workbooks), and QR-code lures.
+- **RTF support**: format detection (`{\rt`), `\objdata` decoded the way Word reads it (parameters on control words, ignorable groups, junk characters, `\bin`), OLE1 header parsing with a fallback for corrupted headers, and Equation Editor exploit detection: MTEF `FONT` overflow (CVE-2017-11882 / CVE-2018-0802) and `MATRIX` overflow (CVE-2018-0798). The bytes that follow the malformed record are extracted.
+- **VBA stomping detection**: string literals compiled into a module's p-code but absent from its source are reported (with the literals as evidence) and scanned for indicators.
+- **Payload hiding places available to the emulator**:
+  - Excel cells: `Sheets(...)`, `Worksheets(...)`, `Range(...)`, `Cells(r, c)`, `Offset`, and assignment through the default member;
+  - document properties (`BuiltInDocumentProperties`, `CustomDocumentProperties`), from OLE property sets and `docProps/*.xml`;
+  - document variables (`ActiveDocument.Variables`, from `word/settings.xml`);
+  - `TextBox.Text` / `Caption` aliases on UserForm controls.
+- New JSON sections `macro_sheets` and `document_properties`. The text report shows static findings, macro sheets, run-time XLM formulas and non-trivial properties.
+
+### Changed
+
+- JSON schema bumped to `1.3.0` (additive).
+- Documents with Excel 4.0 macros now report `macros: present`.
+
 ## [0.1.0] - 2026-11-11
 
 First public release.

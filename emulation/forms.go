@@ -25,6 +25,20 @@ func (o *formObject) Get(n string) runtime.Value {
 	if v, ok := o.props[strings.ToLower(n)]; ok {
 		return runtime.VString(v)
 	}
+	// TextBox.Text mirrors .Value; Label/CommandButton expose .Caption.
+	switch strings.ToLower(n) {
+	case "text":
+		if v, ok := o.props["value"]; ok {
+			return runtime.VString(v)
+		}
+		if v, ok := o.props["caption"]; ok {
+			return runtime.VString(v)
+		}
+	case "value":
+		if v, ok := o.props["caption"]; ok {
+			return runtime.VString(v)
+		}
+	}
 	return runtime.NewUnknown("missing form property " + o.name + "." + n)
 }
 func (o *formObject) Set(n string, v runtime.Value)                  { o.props[strings.ToLower(n)] = v.CoerceString() }

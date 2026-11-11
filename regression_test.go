@@ -362,3 +362,58 @@ func readSample(t *testing.T, name string) []byte {
 	}
 	return b
 }
+
+// Samples with no VBA must still be reported: an Equation Editor exploit in
+// RTF, a phishing workbook whose only payload is a hyperlinked picture, and
+// a QR-code lure.
+func TestStaticSampleRegressions(t *testing.T) {
+	cases := []struct {
+		file  string
+		kinds []string
+		check func(t *testing.T, r *report.Report)
+	}{
+		{"Project No.88719_ECOFIX.rtf.bin", []string{"embedded_ole", "equation_editor_exploit", "ole_autoupdate"}, func(t *testing.T, r *report.Report) {
+			for _, f := range r.StaticFindings {
+				if f.Kind == "equation_editor_exploit" && !strings.Contains(f.Detail, "CVE-2018-0798") {
+					t.Errorf("exploit detail = %s", f.Detail)
+				}
+				if f.Kind == "embedded_ole" && f.Target != "EquATioN.3" {
+					t.Errorf("object class = %s", f.Target)
+				}
+			}
+		}},
+		{"NMU Advanced Legal.xls.bin", []string{"shape_hyperlink"}, func(t *testing.T, r *report.Report) {
+			if len(r.StaticFindings) != 1 || r.StaticFindings[0].Target != "http://caribou-turtle-lgpz.squarespace.com/" {
+				t.Errorf("findings = %+v", r.StaticFindings)
+			}
+		}},
+		{"Contract_Traffix-Docs_7329.docx.bin", []string{"qr_code_lure"}, nil},
+	}
+	for _, c := range cases {
+		t.Run(c.file, func(t *testing.T) {
+			r := AnalyzeFromBytes(nil, readSample(t, c.file), c.file, Options{})
+			for _, k := range c.kinds {
+				if !hasFinding(r, k) {
+					t.Errorf("missing %s in %+v", k, r.StaticFindings)
+				}
+			}
+			if hasFinding(r, "vba_stomping") {
+				t.Error("unexpected stomping finding")
+			}
+			if c.check != nil {
+				c.check(t, r)
+			}
+		})
+	}
+	// VBA samples must not gain static findings (no false positives from
+	// the p-code comparison).
+	for _, f := range []string{"394c97cc9d567e556a357f129aea03f737cbd2a1761df32146ef69d93afc73dc.doc", "7dbd8ecfada1d39a81a58c9468b91039.doc",
+		"9eebae3cce1e63f01eaa6867ae8537cf19162527bb7e7d752282f0e20dc03a66.bin", "PO-465514-180820.doc.bin", "IMPORTANT FINANCIAL DATA.xls.bin"} {
+		t.Run(f, func(t *testing.T) {
+			r := AnalyzeFromBytes(nil, readSample(t, f), f, Options{})
+			if len(r.StaticFindings) != 0 {
+				t.Errorf("findings = %+v", r.StaticFindings)
+			}
+		})
+	}
+}
