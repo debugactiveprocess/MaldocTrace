@@ -7,9 +7,9 @@ import (
 	"flag"
 	"fmt"
 	"os"
-)
 
-const version = "0.1.0"
+	"maldoctrace"
+)
 
 const usageText = `MaldocTrace - defensive VBA macro analysis for Office documents
 
@@ -34,7 +34,7 @@ func main() {
 	var err error
 	switch os.Args[1] {
 	case "version", "--version", "-V":
-		fmt.Printf("MaldocTrace %s\n", version)
+		fmt.Printf("MaldocTrace %s\n", maldoctrace.Version)
 		os.Exit(0)
 	case "inspect":
 		err = runInspect(os.Args[2:])

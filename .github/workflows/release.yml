@@ -1,0 +1,109 @@
+name: Release
+
+# Pushing a tag such as v0.1.0 tests the code, builds MaldocTrace for
+# Windows, Linux and macOS, and publishes a GitHub Release with the archives,
+# SHA-256 checksums and the matching CHANGELOG.md section as release notes.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go vet ./...
+      - run: go test ./...
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - { goos: windows, goarch: amd64 }
+          - { goos: windows, goarch: arm64 }
+          - { goos: linux, goarch: amd64 }
+          - { goos: linux, goarch: arm64 }
+          - { goos: darwin, goarch: amd64 }
+          - { goos: darwin, goarch: arm64 }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          NAME="maldocTrace_${VERSION}_${GOOS}_${GOARCH}"
+          BIN="maldocTrace"
+          if [ "$GOOS" = "windows" ]; then BIN="maldocTrace.exe"; fi
+          mkdir -p "stage/$NAME" dist
+          go build -trimpath -ldflags "-s -w -X maldoctrace.Version=${VERSION}" -o "stage/$NAME/$BIN" ./cmd/maldoctrace
+          cp README.md CHANGELOG.md "stage/$NAME/"
+          cd stage
+          if [ "$GOOS" = "windows" ]; then
+            zip -qr "../dist/$NAME.zip" "$NAME"
+          else
+            tar -czf "../dist/$NAME.tar.gz" "$NAME"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: dist-*
+          path: dist
+          merge-multiple: true
+
+      - name: Checksums
+        run: |
+          cd dist
+          sha256sum * > checksums.txt
+          cat checksums.txt
+
+      - name: Release notes from CHANGELOG.md
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          awk -v v="$VERSION" '
+            index($0, "## [" v "]") == 1 { found = 1; next }
+            found && index($0, "## [") == 1 { exit }
+            found { print }
+          ' CHANGELOG.md > notes.md
+          if [ ! -s notes.md ]; then
+            echo "CHANGELOG.md has no section for [$VERSION]" >&2
+            exit 1
+          fi
+          cat notes.md
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "MaldocTrace $GITHUB_REF_NAME" \
+            --notes-file notes.md \
+            --verify-tag

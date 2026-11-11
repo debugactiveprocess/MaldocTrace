@@ -17,8 +17,9 @@ import (
 	"maldoctrace/vba/runtime"
 )
 
-// Version is the tool version reported in output.
-const Version = "0.1.0"
+// Version is the tool version reported in output. Release builds set it
+// from the git tag: -ldflags "-X maldoctrace.Version=1.2.3".
+var Version = "0.1.0"
 
 // Options configures an analysis run.
 type Options struct {
