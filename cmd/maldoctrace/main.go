@@ -12,18 +12,21 @@ import (
 )
 
 const usageText = `MaldocTrace - defensive VBA macro analysis for Office documents
+(also reads ZIP/7z archives in memory, trying the passwords infected, malware, virus,
+.eml/.msg emails and OneNote sections, analysing every attachment or embedded file)
 
 Usage:
   maldocTrace inspect <file>
   maldocTrace extract <file> --out <dir> [--force]
-  maldocTrace analyze <file> [--format json|text|jsonl] [--timeout 30s] [--max-steps N] [--input-format vba] [--show-strings] [--dump-payloads DIR] [--password PW]...
-  maldocTrace analyze <dir> --recursive [--format jsonl] [--workers N]
+  maldocTrace analyze <file> [--format json|text|jsonl] [--timeout 30s] [--max-steps N] [--input-format vba] [--show-strings] [--dump-payloads DIR] [--password PW]... [--fail-on suspicious|malicious]
+  maldocTrace analyze <dir> --recursive [--format jsonl] [--workers N] [--fail-on suspicious|malicious]
   maldocTrace version
 
 Exit codes:
   0  success (even when suspicious indicators are found)
   1  analysis/internal error
   2  usage error
+  3  --fail-on threshold met (a file's verdict is at least the given level)
 `
 
 func main() {
@@ -53,6 +56,11 @@ func main() {
 		if errors.Is(err, flag.ErrHelp) {
 			return
 		}
+		var fe failOnErr
+		if errors.As(err, &fe) {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(3)
+		}
 		if isUsage(err) {
 			fmt.Fprintf(os.Stderr, "usage error: %v\n", err)
 			os.Exit(2)
@@ -60,6 +68,16 @@ func main() {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+// failOnErr reports that --fail-on matched (exit code 3).
+type failOnErr struct {
+	verdict string
+	files   int
+}
+
+func (f failOnErr) Error() string {
+	return fmt.Sprintf("--fail-on: %d file(s) with verdict %s or worse", f.files, f.verdict)
 }
 
 type usageErr struct{ msg string }

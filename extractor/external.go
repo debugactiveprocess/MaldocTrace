@@ -109,6 +109,7 @@ func scanOOXML(data []byte, lim *Limits, res *Result) {
 		}
 	}
 	checkQRLure(res.DocumentText, images, res)
+	scanOOXMLEmbeddings(parts, lim, res)
 	readOOXMLProperties(read, res)
 	extractXLSX(read, res)
 }

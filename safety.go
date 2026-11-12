@@ -38,4 +38,5 @@ func safeFinalize(r *report.Report) {
 	r.SemanticCoverage = "partial"
 	r.Indicators = r.IOCs
 	r.Stats.IOCCount = len(r.IOCs)
+	runStage(r, "verdict", func() { computeVerdict(r) })
 }

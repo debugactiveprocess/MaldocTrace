@@ -31,6 +31,8 @@ type Options struct {
 	// DocumentText supplies the document body when analysing raw VBA text
 	// (container inputs use the text extracted from the file).
 	DocumentText string
+	// depth is the nesting level of an embedded file being analysed.
+	depth int
 }
 
 func (o *Options) fill() {
@@ -67,6 +69,12 @@ func AnalyzeFromBytes(parent context.Context, data []byte, path string, opts Opt
 		Macros:        "absent",
 	}
 	start := time.Now()
+
+	if kind := extractor.DetectContainer(data); kind != "" {
+		r.Format = kind
+		runStage(r, kind, func() { analyzeContainer(ctx, kind, data, r, opts) })
+		return finishReport(ctx, r, start)
+	}
 
 	var res *extractor.Result
 	var extractErr error
@@ -123,10 +131,17 @@ func AnalyzeFromBytes(parent context.Context, data []byte, path string, opts Opt
 		}
 	}
 	runStage(r, "static", func() { staticAnalysis(res, r) })
+	runStage(r, "embedded", func() { processChildren(ctx, r, embeddedFiles(res), opts) })
 	if res.HasModules() || res.HasXLM() {
 		runStage(r, "emulation", func() { runEmulation(ctx, res, r, opts) })
 	}
 
+	return finishReport(ctx, r, start)
+}
+
+// finishReport settles the status, runs the post-processing and the
+// verdict, and records the duration.
+func finishReport(ctx context.Context, r *report.Report, start time.Time) *report.Report {
 	if r.Status == "failed" {
 		// keep failed: a recovered panic must stay visible in the status
 	} else if ctx.Err() != nil {

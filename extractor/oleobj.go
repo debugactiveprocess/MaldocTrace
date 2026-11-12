@@ -406,15 +406,3 @@ func reportOLEObject(o *OLEObject, res *Result) {
 		res.addExternal(ExternalRef{Kind: "embedded_url", Severity: "medium", Location: o.Location, Target: u, Detail: "URL inside the embedded object"})
 	}
 }
-
-// scanObjectPool reports the embedded and linked objects of a Word 97-2003
-// document (ObjectPool/_<id> storages).
-func scanObjectPool(cfb *cfbReader, res *Result) []*OLEObject {
-	var out []*OLEObject
-	for _, prefix := range oleStoragePrefixes(cfb, "ObjectPool/") {
-		o := readOLEObject(cfb, prefix, strings.TrimSuffix(prefix, "/"))
-		reportOLEObject(o, res)
-		out = append(out, o)
-	}
-	return out
-}

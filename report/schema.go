@@ -5,10 +5,16 @@ package report
 import "github.com/debugactiveprocess/MaldocTrace/vba/runtime"
 
 // SchemaVersion is the version of the JSON schema emitted by this tool.
-const SchemaVersion = "1.5.0"
+const SchemaVersion = "1.6.0"
 
 // Report is the top-level, self-contained analysis result for one file.
 type Report struct {
+	// Verdict summarises the evidence: malicious | suspicious | clean |
+	// unknown (analysis incomplete and nothing found). RiskScore (0-100) and
+	// VerdictReasons explain how it was reached.
+	Verdict         string           `json:"verdict"`
+	RiskScore       int              `json:"risk_score"`
+	VerdictReasons  []string         `json:"verdict_reasons,omitempty"`
 	Commands        []Command        `json:"commands"`
 	DecodedPayloads []DecodedPayload `json:"decoded_payloads"`
 	ScriptCalls     []ScriptCall     `json:"script_calls"`
@@ -44,9 +50,22 @@ type Report struct {
 	LimitsHit   []string     `json:"limits_hit,omitempty"`
 	// Checks names the structures that were examined (macros, fields,
 	// templates, embedded objects...), so a clean result says what it covers.
-	Checks     []string `json:"checks,omitempty"`
-	DurationMs int64    `json:"duration_ms"`
-	Stats      Stats    `json:"stats"`
+	Checks []string `json:"checks,omitempty"`
+	// Children are the reports of files found inside this one: embedded
+	// documents and objects, archive members, email attachments.
+	Children   []Child `json:"children,omitempty"`
+	DurationMs int64   `json:"duration_ms"`
+	Stats      Stats   `json:"stats"`
+}
+
+// Child is the analysis of a file found inside the analysed one.
+type Child struct {
+	// Source tells where it came from: embedded_object, archive_member,
+	// email_attachment, onenote_file...
+	Source string `json:"source"`
+	// Name is the member name, attachment file name or object location.
+	Name   string  `json:"name"`
+	Report *Report `json:"report"`
 }
 
 // FileInfo identifies the analysed input.

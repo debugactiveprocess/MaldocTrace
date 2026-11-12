@@ -311,6 +311,11 @@ var knownObjectClasses = []struct{ prefix, severity, note string }{
 	{"excel.sheet", "medium", "embedded Excel workbook (may carry macros)"},
 	{"forms.", "medium", "embedded ActiveX/Forms control"},
 	{"shell.explorer", "high", "Shell.Explorer (embedded browser) object"},
+	{"microsoft office word", "medium", "embedded Word document (may carry macros)"},
+	{"microsoft word", "medium", "embedded Word document (may carry macros)"},
+	{"microsoft office excel", "medium", "embedded Excel workbook (may carry macros)"},
+	{"microsoft excel", "medium", "embedded Excel workbook (may carry macros)"},
+	{"acroexch", "medium", "embedded PDF document (Adobe Acrobat)"},
 }
 
 // classifyRTFObject reports an embedded object and anything it reveals.

