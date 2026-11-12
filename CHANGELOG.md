@@ -5,6 +5,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- Document variables of Word 97-2003 files (`StwUser` in the table stream) are read, so `ThisDocument.Variables("x").Value` returns what droppers stored there.
+- `MSXML2.DOMDocument` / `Microsoft.XMLDOM` elements with `DataType` `bin.base64` or `bin.hex`: `NodeTypedValue` decodes `Text` (and encodes in the other direction).
+- `ADODB.Stream` is modelled as a positioned stream: `Type`, `Charset` (utf-8 and unicode with their BOM, us-ascii...), `Position`, `Read`, `ReadText`, `SetEOS`. The usual "string to bytes" and "bytes to string" conversions now work.
+- Commands that JScript or VBScript code runs through a `WScript.Shell` handed to `ScriptControl.AddObject` (`oShell.run("...")`) are recovered as commands.
+- Files the macro writes are identified: JAR files (main class, class and package count), ZIP and OOXML archives, PE files and shellcode.
+
+### Fixed
+
+- `.Member` inside `With` blocks was not parsed, so `With CreateObject(...)` blocks lost every property assignment and method call.
+- `ReDim` and `ReDim Preserve` were ignored, so arrays sized at run time stayed empty.
+- Function return types such as `As Byte()` broke the parsing of the procedure.
+- `ThisDocument.<member>` resolved to the code module only; document members such as `Variables` are now reached when the module defines no procedure of that name.
+- Text output lists at most 12 document properties and variables (the rest are in the JSON).
+
 ## [0.3.0] - 2026-11-12
 
 Encrypted Office documents, shellcode and PE profiling.

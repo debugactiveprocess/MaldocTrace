@@ -173,6 +173,12 @@ func (p *parser) parsePrimary() ast.Expr {
 			return &ast.Ident{At: ast.At{P: t.Pos}, Name: t.Text}
 		}
 	case lexer.Op:
+		if t.Text == "." || t.Text == "!" {
+			// ".Member" inside a With block.
+			p.advance()
+			name := p.expectIdent()
+			return &ast.Member{At: ast.At{P: t.Pos}, Obj: &ast.WithObj{At: ast.At{P: t.Pos}}, Name: name}
+		}
 		if t.Text == "(" {
 			p.advance()
 			x := p.parseExpr()

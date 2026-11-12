@@ -158,7 +158,10 @@ type Artifact struct {
 	Discovery string `json:"discovery"`
 	Module    string `json:"module,omitempty"`
 	Proc      string `json:"proc,omitempty"`
-	Raw       []byte `json:"-"` // file content, for --dump-payloads
+	// FileType and Facts identify the content (PE, JAR, script...).
+	FileType string   `json:"file_type,omitempty"`
+	Facts    []string `json:"facts,omitempty"`
+	Raw      []byte   `json:"-"` // file content, for --dump-payloads
 }
 
 // Diagnostic is a non-fatal observation from any pipeline stage.

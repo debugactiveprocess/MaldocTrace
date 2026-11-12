@@ -224,6 +224,9 @@ func extractFromCFB(ctx context.Context, data []byte, sourceFile string, lim *Li
 	}
 	if sourceFile == "" {
 		readOLEProperties(cfb, res)
+		if cfb.find("WordDocument") != nil {
+			readWordVariables(cfb, res)
+		}
 		if res.DocumentText != "" {
 			scanFieldCodes(res.DocumentText, "WordDocument", res)
 		}

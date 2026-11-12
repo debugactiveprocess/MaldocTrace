@@ -26,6 +26,11 @@ func (d *procDispatcher) CallProc(m, p string, args []runtime.Value) runtime.Val
 	return it.CallProc(p, args)
 }
 
+func (d *procDispatcher) HasProc(m, p string) bool {
+	it := d.ints[strings.ToLower(m)]
+	return it != nil && it.HasProc(p)
+}
+
 type entryProc struct {
 	module  string
 	proc    string

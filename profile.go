@@ -124,6 +124,23 @@ func profileBinaries(r *report.Report) {
 	}
 }
 
+// profileArtifacts identifies files the macro wrote (PE, JAR, ZIP...).
+func profileArtifacts(r *report.Report) {
+	for i := range r.Artifacts {
+		a := &r.Artifacts[i]
+		if len(a.Raw) == 0 || a.FileType != "" {
+			continue
+		}
+		a.FileType, a.Facts = payload.DescribeBinary(a.Raw)
+		if a.FileType != "" {
+			continue
+		}
+		if prof := payload.ProfileShellcode(a.Raw); !prof.Empty() {
+			a.FileType, a.Facts = prof.Kind(), prof.Facts()
+		}
+	}
+}
+
 func profUA(p *payload.ShellcodeProfile) string {
 	if p.Network == nil {
 		return ""

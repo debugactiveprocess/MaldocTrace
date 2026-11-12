@@ -299,3 +299,71 @@ func readDocVars(b []byte, res *Result) {
 		}
 	}
 }
+
+// readWordVariables reads the document variables of a Word 97-2003 file:
+// the StwUser structure the FIB points to (fcStwUser/lcbStwUser) in the
+// table stream ([MS-DOC] 2.9.288): an extended STTB of names followed by one
+// Xst value per name. Droppers store payload chunks there and read them with
+// ThisDocument.Variables("name").Value.
+func readWordVariables(cfb *cfbReader, res *Result) {
+	wd, err := cfb.readStream("WordDocument")
+	if err != nil || len(wd) < 0x282 || binary.LittleEndian.Uint16(wd) != 0xA5EC {
+		return
+	}
+	flags := binary.LittleEndian.Uint16(wd[0x0A:])
+	if flags&0x0100 != 0 { // fEncrypted
+		return
+	}
+	table := "0Table"
+	if flags&0x0200 != 0 {
+		table = "1Table"
+	}
+	tbl, err := cfb.readStream(table)
+	if err != nil {
+		return
+	}
+	fc := int64(binary.LittleEndian.Uint32(wd[0x27A:]))
+	lcb := int64(binary.LittleEndian.Uint32(wd[0x27E:]))
+	if lcb < 6 || fc < 0 || fc+lcb > int64(len(tbl)) {
+		return
+	}
+	b := tbl[fc : fc+lcb]
+	if binary.LittleEndian.Uint16(b) != 0xFFFF { // names are always UTF-16
+		res.addDiag("info", "props", "document variables use an unsupported STTB form")
+		return
+	}
+	n := int(binary.LittleEndian.Uint16(b[2:]))
+	cbExtra := int(binary.LittleEndian.Uint16(b[4:]))
+	p := 6
+	xst := func() (string, bool) {
+		if p+2 > len(b) {
+			return "", false
+		}
+		cch := int(binary.LittleEndian.Uint16(b[p:]))
+		p += 2
+		if p+2*cch > len(b) {
+			return "", false
+		}
+		s := utf16String(b[p : p+2*cch])
+		p += 2 * cch
+		return s, true
+	}
+	names := make([]string, 0, n)
+	for i := 0; i < n; i++ {
+		name, ok := xst()
+		if !ok || p+cbExtra > len(b) {
+			res.addDiag("warning", "props", "document variables truncated")
+			return
+		}
+		p += cbExtra
+		names = append(names, name)
+	}
+	for _, name := range names {
+		val, ok := xst()
+		if !ok {
+			res.addDiag("warning", "props", "document variable values truncated")
+			return
+		}
+		res.addProperty(DocProperty{Name: name, Value: val, Kind: "variable", Source: table + " (StwUser)"})
+	}
+}

@@ -141,6 +141,9 @@ func (rt *Interp) RunModule(body []ast.Stmt) {
 // WasCalled reports whether a procedure of this module has already run.
 func (rt *Interp) WasCalled(name string) bool { return rt.called[strings.ToLower(name)] }
 
+// HasProc reports whether the module defines a procedure of that name.
+func (rt *Interp) HasProc(name string) bool { return rt.procs[strings.ToLower(name)] != nil }
+
 // CallProc invokes a named procedure with arguments.
 func (rt *Interp) CallProc(name string, args []Value) Value {
 	proc := rt.procs[strings.ToLower(name)]

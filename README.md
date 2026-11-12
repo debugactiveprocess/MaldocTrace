@@ -27,14 +27,15 @@ Documents with no macros at all are covered too. Remote template injection, DDE 
   - RTF embedded objects decoded the way Word reads them (obfuscated `\objdata`, corrupted OLE1 headers), with Equation Editor exploit detection: the MTEF FONT overflow (CVE-2017-11882 / CVE-2018-0802) and the MATRIX overflow (CVE-2018-0798), plus extraction of the bytes that follow;
   - hyperlinks on pictures and cells, and QR-code lures;
   - **VBA stomping**: string literals compiled into the p-code but missing from the source mean the source shown is not the code Office runs. Those literals are reported and scanned for indicators.
-- **Payload hiding places**: cell values (`Sheets("x").Range("A1")`, `Cells(r, c)`), document properties (`BuiltInDocumentProperties("Comments")`, custom properties), document variables (`ActiveDocument.Variables`) and UserForm controls (`TextBox.Text`, `Label.Caption`) are all available to the emulated macro.
+- **Payload hiding places**: cell values (`Sheets("x").Range("A1")`, `Cells(r, c)`), document properties (`BuiltInDocumentProperties("Comments")`, custom properties), document variables (`ActiveDocument.Variables`, from `.docx` settings and the `StwUser` table of `.doc` files) and UserForm controls (`TextBox.Text`, `Label.Caption`) are all available to the emulated macro.
 - **Document body text**: extracted from Word 97-2003 (piece table) and `.docx`. Droppers often hide their payload in the document body and read it back through `ActiveDocument.Paragraphs(n).Range.Text`.
 - **VBA interpreter**: a lexer, parser and bounded interpreter covering the subset of VBA that malware relies on: procedures, `ByRef` parameters, named arguments, conditional compilation, loops, arrays and the string built-ins.
 - **Static deobfuscation**: constant folding of `Chr`/`StrReverse`/`Replace`/concatenation. Each value records how it was rebuilt (`concatenation+Chr`, `StrReverse`, ...).
 - **Simulated environment**:
   - processes: `WScript.Shell`, `Shell`, WMI `Win32_Process.Create` (both `GetObject` and `CreateObject("winmgmts:...")`)
-  - files and network: `FileSystemObject`, `ADODB.Stream`, `XMLHTTP`/`WinHttp`
-  - script engines: `MSScriptControl.ScriptControl`
+  - files and network: `FileSystemObject`, `ADODB.Stream` (position, text/binary mode and charsets), `XMLHTTP`/`WinHttp`
+  - `MSXML2.DOMDocument` elements, including the `bin.base64`/`bin.hex` decoding trick
+  - script engines: `MSScriptControl.ScriptControl`; commands that the script runs through a `WScript.Shell` exposed with `AddObject` are recovered
   - Word's document model: `Paragraphs`, `Range`, `Delete`, `SaveAs2`
   - Excel's object model (`Sheets`, `Worksheets`, `Range`, `Cells`, `Offset`), shared with the XLM engine, and `ExecuteExcel4Macro`/`Application.Run` into macro sheets
   - declared Windows APIs, with simulated `VarPtr` pointers

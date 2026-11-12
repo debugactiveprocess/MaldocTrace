@@ -107,6 +107,12 @@ func (e *NothingLit) exprNode() {}
 
 type EmptyLit struct{ At }
 
+// WithObj is the implicit object of the innermost With block, the receiver
+// of ".Member" inside it.
+type WithObj struct{ At }
+
+func (e *WithObj) exprNode() {}
+
 func (e *EmptyLit) exprNode() {}
 
 type Unary struct {
