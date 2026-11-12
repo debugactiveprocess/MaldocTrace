@@ -1,0 +1,36 @@
+Source: maldoctrace
+Section: utils
+Priority: optional
+Maintainer: Kali Developers <devel@kali.org>
+Uploaders: Ialle Teixeira <49375302+debugactiveprocess@users.noreply.github.com>
+Build-Depends: debhelper-compat (= 13),
+               dh-sequence-golang,
+               golang-any (>= 2:1.23~),
+               golang-golang-x-text-dev
+Standards-Version: 4.7.0
+Homepage: https://github.com/debugactiveprocess/MaldocTrace
+Rules-Requires-Root: no
+XS-Go-Import-Path: github.com/debugactiveprocess/MaldocTrace
+Testsuite: autopkgtest
+
+Package: maldoctrace
+Architecture: any
+Depends: ${misc:Depends},
+         ${shlibs:Depends}
+Static-Built-Using: ${misc:Static-Built-Using}
+Description: analyzer for malicious Office documents with VBA/XLM emulation
+ MaldocTrace extracts VBA and Excel 4.0 (XLM) macros from Office documents,
+ deobfuscates them and emulates them in a fully simulated environment: no
+ process is started, no network request is made and no COM object is
+ created. The report shows what the document would do (command lines,
+ decoded payloads, dropped files), each traced back to the module,
+ procedure and line, or sheet and cell, that produced it.
+ .
+ Supported inputs are OLE/CFB (.doc, .xls, .ppt),
+ OOXML (.docx, .docm, .xlsx, .xlsm, .pptm), RTF and plain VBA text.
+ It also reports macro-less techniques such as remote template injection,
+ external OLE objects, DDE fields, RTF Equation Editor exploits and VBA
+ stomping.
+ .
+ Output is available as text, JSON and JSONL, with a batch mode for
+ directories and an option to dump recovered payloads.

@@ -1,0 +1,15 @@
+#!/bin/sh
+# Emulate a harmless VBA macro and check that the simulated Shell call is
+# reported. Nothing is executed: the command is only recorded.
+set -e
+dir="${AUTOPKGTEST_TMP:-$(mktemp -d)}"
+cat > "$dir/macro.vba" <<'EOF'
+Sub AutoOpen()
+    Dim c As String
+    c = "cmd /c " & Chr(101) & "cho hello"
+    Shell c
+End Sub
+EOF
+maldoctrace analyze "$dir/macro.vba" --input-format vba --format json > "$dir/report.json"
+grep -q '"cmd /c echo hello"' "$dir/report.json"
+echo "ok: simulated command recovered"
