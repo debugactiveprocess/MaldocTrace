@@ -70,13 +70,42 @@ type biffBook struct {
 // extractBIFF parses the Workbook stream of an .xls file: sheet directory,
 // shared strings, cell values, formulas (decompiled from parsed tokens to
 // A1 text) and defined names. Macro sheets (Excel 4.0) are flagged as such.
-func extractBIFF(cfb *cfbReader, stream string, res *Result) {
+func extractBIFF(cfb *cfbReader, stream string, lim *Limits, res *Result) {
 	data, err := cfb.readStream(stream)
 	if err != nil {
 		res.addDiag("warning", "biff", err.Error())
 		return
 	}
 	recs := biffRecords(data)
+	decrypted := false
+	for _, rec := range recs {
+		if rec.typ != rtFilePass {
+			continue
+		}
+		res.Encrypted = true
+		h, scheme, err := parseFilePass(rec.data)
+		if err != nil {
+			res.Decryption = &Decryption{Scheme: scheme, Note: "unsupported encryption"}
+			res.addDiag("warning", "biff", "workbook is encrypted ("+scheme+", not supported); cells and macro sheets cannot be read")
+			return
+		}
+		for _, pw := range candidatePasswords(lim) {
+			if kf := h.keyFunc(pw); h.verify(kf) {
+				data = decryptBIFF(data, kf)
+				recs = biffRecords(data)
+				decrypted = true
+				res.Decryption = &Decryption{Scheme: scheme, Decrypted: true, Password: pw}
+				res.addDiag("info", "decrypt", fmt.Sprintf("decrypted %s workbook with %s", scheme, describePassword(pw)))
+				break
+			}
+		}
+		if !decrypted {
+			res.Decryption = &Decryption{Scheme: scheme, Note: "password not in the candidate list (use --password)"}
+			res.addDiag("warning", "biff", "workbook is encrypted ("+scheme+"); password unknown, cells and macro sheets cannot be read")
+			return
+		}
+		break
+	}
 	if len(recs) == 0 || recs[0].typ != rtBOF {
 		res.addDiag("info", "biff", stream+": not a BIFF8 workbook")
 		return
@@ -114,9 +143,9 @@ func extractBIFF(cfb *cfbReader, stream string, res *Result) {
 		case rtEOF:
 			current = nil
 		case rtFilePass:
-			res.Encrypted = true
-			res.addDiag("warning", "biff", "workbook is encrypted (FILEPASS); cells and macro sheets cannot be read")
-			return
+			if !decrypted {
+				return
+			}
 		case rtBoundSheet:
 			if len(d) < 8 {
 				continue

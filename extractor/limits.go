@@ -25,6 +25,10 @@ type Limits struct {
 	// and compressed size for a single archive entry. Entries above this ratio
 	// are treated as decompression bombs.
 	MaxZipRatio int64
+	// Passwords are tried before DefaultPasswords when a document is
+	// encrypted (not a resource bound; carried here so every caller of
+	// Extract can set it).
+	Passwords []string
 }
 
 // DefaultLimits returns conservative limits suitable for interactive analysis

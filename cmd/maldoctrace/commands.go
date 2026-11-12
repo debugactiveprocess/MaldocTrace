@@ -114,8 +114,8 @@ func runExtract(args []string) error {
 	if err != nil {
 		return err
 	}
-	if res.Encrypted {
-		return fmt.Errorf("file is encrypted; refusing to write a misleading empty extraction")
+	if res.Unreadable() && len(res.Modules) == 0 {
+		return fmt.Errorf("file is encrypted and the password is unknown; refusing to write a misleading empty extraction")
 	}
 	written := 0
 	for _, m := range res.Modules {

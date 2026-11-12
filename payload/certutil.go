@@ -2,13 +2,11 @@ package payload
 
 import (
 	"bytes"
-	"debug/pe"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"path"
 	"strings"
-	"time"
 )
 
 // CertutilDecode describes a "certutil -decode|-decodehex <in> <out>" call.
@@ -84,32 +82,7 @@ func DecodeCertutil(content []byte, isHex bool) ([]byte, error) {
 // and human-readable facts. It parses headers only; nothing is executed.
 func DescribeBinary(b []byte) (string, []string) {
 	if len(b) >= 2 && b[0] == 'M' && b[1] == 'Z' {
-		f, err := pe.NewFile(bytes.NewReader(b))
-		if err != nil {
-			return "PE (MZ header, unparsable: " + err.Error() + ")", nil
-		}
-		defer f.Close()
-		kind := "PE32 executable"
-		if _, ok := f.OptionalHeader.(*pe.OptionalHeader64); ok {
-			kind = "PE32+ executable"
-		}
-		if f.Characteristics&pe.IMAGE_FILE_DLL != 0 {
-			kind = strings.Replace(kind, "executable", "DLL", 1)
-		}
-		var facts []string
-		facts = append(facts, fmt.Sprintf("machine=0x%04x", f.Machine))
-		if f.TimeDateStamp != 0 {
-			facts = append(facts, "compiled="+time.Unix(int64(f.TimeDateStamp), 0).UTC().Format(time.RFC3339))
-		}
-		var secs []string
-		for _, s := range f.Sections {
-			secs = append(secs, s.Name)
-		}
-		facts = append(facts, "sections="+strings.Join(secs, ","))
-		if libs, err := f.ImportedLibraries(); err == nil && len(libs) > 0 {
-			facts = append(facts, "imports="+strings.Join(libs, ","))
-		}
-		return kind, facts
+		return describePE(b)
 	}
 	switch {
 	case bytes.HasPrefix(b, []byte("PK\x03\x04")):

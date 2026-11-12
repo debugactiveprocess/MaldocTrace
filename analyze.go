@@ -83,9 +83,18 @@ func AnalyzeFromBytes(parent context.Context, data []byte, path string, opts Opt
 	}
 	r.Format = res.Format.String()
 	r.Encrypted = res.Encrypted
+	if d := res.Decryption; d != nil {
+		r.Decryption = &report.Decryption{Scheme: d.Scheme, Decrypted: d.Decrypted, Password: d.Password, Note: d.Note}
+	}
 	r.Projects = toReportProjects(res)
 
-	if res.Encrypted {
+	if res.Unreadable() && (res.HasModules() || res.HasXLM()) {
+		// VBA lives outside the encrypted stream (e.g. .xls), so it was
+		// read, but the encrypted part (cells, macro sheets) was not.
+		r.Macros = "present"
+		r.Status = "partial"
+		r.Diagnostics = append(r.Diagnostics, report.Diagnostic{Severity: "warning", Stage: "extract", Message: "document is encrypted with an unknown password; content the macros read may be missing"})
+	} else if res.Unreadable() {
 		r.Macros = "unknown"
 		r.Status = "partial"
 		r.Diagnostics = append(r.Diagnostics, report.Diagnostic{Severity: "warning", Stage: "extract", Message: "container is encrypted; macro presence is unknown"})

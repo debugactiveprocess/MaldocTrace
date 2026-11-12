@@ -71,6 +71,13 @@ func shortString(s string) []byte { return append([]byte{byte(len(s)), 0}, s...)
 // sheet named macroName (hidden when hidden is set) with the formulas.
 // Auto_Open points to the macro sheet cell (autoRow, autoCol).
 func MacroWorkbook(macroName string, hidden bool, autoRow, autoCol uint16, label string, formulas []Formula) []byte {
+	return Build(Stream{Name: "Workbook", Data: MacroWorkbookStream(nil, macroName, hidden, autoRow, autoCol, label, formulas)})
+}
+
+// MacroWorkbookStream returns the Workbook stream of MacroWorkbook. When
+// filePass is not nil a FILEPASS record with that body follows the globals
+// BOF (the stream itself is left unencrypted; tests encrypt it).
+func MacroWorkbookStream(filePass []byte, macroName string, hidden bool, autoRow, autoCol uint16, label string, formulas []Formula) []byte {
 	sheet := Cat(bof(0x0010), Record(0x0204, Cat([]byte{0, 0, 0, 0, 0, 0}, []byte{byte(len(label)), 0, 0}, []byte(label))), eof)
 	var macro []byte
 	macro = append(macro, bof(0x0040)...)
@@ -103,7 +110,11 @@ func MacroWorkbook(macroName string, hidden bool, autoRow, autoCol uint16, label
 		state = 1
 	}
 	build := func(p1, p2 uint32) []byte {
-		return Cat(bof(0x0005),
+		fp := []byte{}
+		if filePass != nil {
+			fp = Record(0x002F, filePass)
+		}
+		return Cat(bof(0x0005), fp,
 			boundsheet(p1, 0, 0, "Sheet1"),
 			boundsheet(p2, state, 1, macroName),
 			Record(0x01AE, supbook), Record(0x0017, externsheet), Record(0x0018, name),
@@ -112,6 +123,5 @@ func MacroWorkbook(macroName string, hidden bool, autoRow, autoCol uint16, label
 	globals := build(0, 0)
 	p1 := uint32(len(globals))
 	p2 := p1 + uint32(len(sheet))
-	wb := Cat(build(p1, p2), sheet, macro)
-	return Build(Stream{Name: "Workbook", Data: wb})
+	return Cat(build(p1, p2), sheet, macro)
 }

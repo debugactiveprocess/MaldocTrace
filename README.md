@@ -10,6 +10,11 @@ Documents with no macros at all are covered too. Remote template injection, DDE 
 ## Features
 
 - **Container extraction**: OLE/CFB (`.doc`, `.xls`, `.ppt`), OOXML (`.docx`, `.docm`, `.xlsx`, `.xlsm`, `.pptm`), RTF and raw VBA text. Includes MS-OVBA decompression, UserForm control properties, and resource limits against zip bombs and malformed containers.
+- **Encrypted documents**: Excel's default password `VelvetSweatshop`, a short list of common passwords and any `--password` you give are tried against:
+  - `.xls` workbooks encrypted with RC4 or RC4 CryptoAPI (`FILEPASS`), so cells and Excel 4.0 macro sheets can be read. The VBA project of an `.xls` is stored outside the encrypted stream and is always extracted;
+  - OOXML files wrapped in `EncryptionInfo`/`EncryptedPackage` with ECMA-376 Standard (AES) or Agile (AES, SHA-1/256/384/512) encryption.
+
+  The report gives the scheme and the password that worked. When none works, it says so: the absence of macros then proves nothing.
 - **Excel 4.0 (XLM) macros**:
   - macro sheets from `.xls` (BIFF8 formulas decompiled from parsed tokens, using the MS-XLS function tables) and `.xlsm`, including hidden and very hidden sheets;
   - an XLM interpreter that starts at `Auto_Open` (any name Excel would run). It follows `GOTO`, `RUN`, `IF`, `WHILE`/`FOR`/`NEXT`, `ON.TIME` and `RETURN`, and applies `FORMULA`/`FORMULA.FILL`/`SET.VALUE`/`SET.NAME`, so self-decoding macros rebuild their real code;
@@ -38,7 +43,13 @@ Documents with no macros at all are covered too. Remote template injection, DDE 
   - UTF-7 shellcode buffers passed to `MultiByteToWideChar(CP_UTF7)`
   - `certutil -decode`, reproduced over a virtual file system built from what the macro wrote
   - scripts passed to `ScriptControl.AddCode`, reported as script payloads rather than command lines
+  - binary payloads stored as hex text split across string literals, recovered statically even when the macro itself would fail
   - PE/ZIP/OLE/PDF identification from file headers
+- **Shellcode and PE profiling** (static; nothing is executed):
+  - API hashing: classic ROR13 `block_api` hashes and the randomized variant with a seeded, chained hash, resolved to `module!function`;
+  - stager configuration: `reverse_http(s)` host, port, URI, `User-Agent` and `Host` header (domain fronting), `reverse_tcp` IP and port, `URLDownloadToFile` URLs. These become indicators;
+  - XOR decoder stubs (`xor byte [reg], imm8`) and single-byte XOR keys that reveal URLs;
+  - PE files: subsystem, entry point, sections with entropy and RWX flags, imports grouped by behaviour (injection, network, persistence...), .NET and UPX markers, overlay and PDB path.
 - **Provenance everywhere**: commands, payloads and indicators carry evidence IDs (`event-3`, `command-1`, `payload-1`) and source locations. Secondary views refer to an item by its ID instead of repeating large blobs.
 - **Robust against hostile input**: each pipeline stage recovers from panics and records the failure as a diagnostic. A bad sample therefore never kills a batch run. The VBA pipeline and the container parsers are fuzzed.
 
@@ -77,6 +88,7 @@ maldocTrace inspect <file>
 maldocTrace extract <file> --out <dir> [--force]
 maldocTrace analyze <file> [--format json|text|jsonl] [--timeout 30s] [--max-steps N]
                            [--input-format vba] [--show-strings] [--dump-payloads DIR]
+                           [--password PW]...
 maldocTrace analyze <dir> --recursive [--format jsonl] [--workers N]
 maldocTrace version
 ```
@@ -84,10 +96,11 @@ maldocTrace version
 | Option | Description |
 |---|---|
 | `--format text` | Human-readable report (default). |
-| `--format json` | Full, versioned JSON report (schema `1.3.0`). It always includes indicators, diagnostics, decoded strings and full payload content. |
+| `--format json` | Full, versioned JSON report (schema `1.4.0`). It always includes indicators, diagnostics, decoded strings and full payload content. |
 | `--format jsonl` | One JSON report per line, for batch analysis with `--recursive`. |
 | `--show-strings` | Text format only. Lists the reconstructed strings, deduplicated, with every module/procedure/line occurrence and the reconstruction method. |
 | `--dump-payloads DIR` | Writes decoded payloads and files dropped by the macro to `DIR/<input-sha256>/`, with a `manifest.json`. Files get neutral extensions (`.bin`, `.txt`), so nothing can run on a double-click. Existing files are never overwritten. |
+| `--password PW` | Extra password to try on encrypted documents, before the built-in list (`VelvetSweatshop` and common passwords). Repeat it to try several. |
 | `--input-format vba` | Analyze a plain-text VBA file. |
 | `--timeout`, `--max-steps` | Per-file time budget and interpreter step budget. |
 
@@ -358,7 +371,8 @@ For every file, `manifest.json` records the evidence ID, payload kind, detected 
 | `macro_sheets` | Excel 4.0 macro sheets with visibility and every formula (cell, formula text, cached value). |
 | `document_properties` | Built-in and custom document properties and document variables. |
 | `commands` | Recovered command lines and in-memory payload sinks, with receiver, source location, call chain and evidence IDs. |
-| `decoded_payloads` | Decoded PowerShell, scripts, shellcode buffers and certutil outputs. Each payload has its raw and normalized content, encoding chain, sha256, file type and provenance. |
+| `decryption` | For encrypted documents: the scheme, whether it was decrypted, and the password that worked (or why it could not be opened). |
+| `decoded_payloads` | Decoded PowerShell, scripts, shellcode buffers and certutil outputs. Each payload has its raw and normalized content, encoding chain, sha256, file type, profile facts (API hashes, stager configuration, PE imports) and provenance. |
 | `script_calls` | Script-engine invocations (`ScriptControl.Run/Eval/ExecuteStatement`). |
 | `indicators` | Deduplicated URLs, domains, IPs, paths, registry keys and commands, with every occurrence. `same_as` and `part_of` link an indicator to the command or payload it duplicates. |
 | `events` | Every simulated operation, with raw and resolved arguments. |

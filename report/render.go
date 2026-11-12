@@ -176,7 +176,18 @@ func RenderTextWith(r *Report, opt TextOptions) string {
 		}
 	}
 	if r.Encrypted {
-		fmt.Fprintf(&b, "Encrypted: yes (no VBA extracted; absence is NOT evidence of absence)\n")
+		switch d := r.Decryption; {
+		case d != nil && d.Decrypted:
+			pw := fmt.Sprintf("%q", d.Password)
+			if d.Password == "VelvetSweatshop" {
+				pw += " (Excel's default password)"
+			}
+			fmt.Fprintf(&b, "\nEncrypted: yes, decrypted (%s, password %s)\n", d.Scheme, pw)
+		case d != nil:
+			fmt.Fprintf(&b, "\nEncrypted: yes, NOT decrypted (%s: %s); absence of macros is NOT evidence of absence\n", d.Scheme, d.Note)
+		default:
+			fmt.Fprintf(&b, "\nEncrypted: yes (no VBA extracted; absence is NOT evidence of absence)\n")
+		}
 	}
 	if r.Macros == "present" {
 		fmt.Fprintf(&b, "\n-- Entry points --\n")

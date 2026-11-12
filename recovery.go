@@ -154,6 +154,8 @@ func recoverCommands(r *report.Report) {
 		r.DecodedPayloads = append(r.DecodedPayloads, p)
 	}
 	followFileChains(r, &total)
+	recoverHexLiterals(r)
+	profileBinaries(r)
 }
 
 func recoverScriptEvent(r *report.Report, e report.Event, src report.Source, eventID string, scriptFuncs map[string]string) {

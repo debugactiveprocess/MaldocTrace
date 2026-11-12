@@ -5,7 +5,7 @@ package report
 import "github.com/debugactiveprocess/MaldocTrace/vba/runtime"
 
 // SchemaVersion is the version of the JSON schema emitted by this tool.
-const SchemaVersion = "1.3.0"
+const SchemaVersion = "1.4.0"
 
 // Report is the top-level, self-contained analysis result for one file.
 type Report struct {
@@ -18,29 +18,32 @@ type Report struct {
 	// MacroSheets lists Excel 4.0 (XLM) macro sheets and their formulas.
 	MacroSheets []MacroSheet `json:"macro_sheets,omitempty"`
 	// Properties are document properties and variables macros can read.
-	Properties        []Property   `json:"document_properties,omitempty"`
-	Indicators        []IOC        `json:"indicators"`
-	OperationalStatus string       `json:"operational_status"`
-	SemanticCoverage  string       `json:"semantic_coverage"`
-	SchemaVersion     string       `json:"schema_version"`
-	ToolVersion       string       `json:"tool_version"`
-	File              FileInfo     `json:"file"`
-	Format            string       `json:"format"`
-	Status            string       `json:"status"` // complete | partial | failed | timeout
-	Macros            string       `json:"macros"` // present | absent | unknown
-	Encrypted         bool         `json:"encrypted"`
-	Coverage          Coverage     `json:"coverage"`
-	Projects          []Project    `json:"projects,omitempty"`
-	Modules           []Module     `json:"modules,omitempty"`
-	EntryPoints       []EntryPoint `json:"entry_points,omitempty"`
-	Decoded           []DecodedStr `json:"decoded_strings,omitempty"`
-	Events            []Event      `json:"events,omitempty"`
-	IOCs              []IOC        `json:"iocs,omitempty"`
-	Artifacts         []Artifact   `json:"artifacts,omitempty"`
-	Diagnostics       []Diagnostic `json:"diagnostics,omitempty"`
-	LimitsHit         []string     `json:"limits_hit,omitempty"`
-	DurationMs        int64        `json:"duration_ms"`
-	Stats             Stats        `json:"stats"`
+	Properties        []Property `json:"document_properties,omitempty"`
+	Indicators        []IOC      `json:"indicators"`
+	OperationalStatus string     `json:"operational_status"`
+	SemanticCoverage  string     `json:"semantic_coverage"`
+	SchemaVersion     string     `json:"schema_version"`
+	ToolVersion       string     `json:"tool_version"`
+	File              FileInfo   `json:"file"`
+	Format            string     `json:"format"`
+	Status            string     `json:"status"` // complete | partial | failed | timeout
+	Macros            string     `json:"macros"` // present | absent | unknown
+	Encrypted         bool       `json:"encrypted"`
+	// Decryption tells how an encrypted document was opened (scheme and
+	// the password that worked) or why it could not be.
+	Decryption  *Decryption  `json:"decryption,omitempty"`
+	Coverage    Coverage     `json:"coverage"`
+	Projects    []Project    `json:"projects,omitempty"`
+	Modules     []Module     `json:"modules,omitempty"`
+	EntryPoints []EntryPoint `json:"entry_points,omitempty"`
+	Decoded     []DecodedStr `json:"decoded_strings,omitempty"`
+	Events      []Event      `json:"events,omitempty"`
+	IOCs        []IOC        `json:"iocs,omitempty"`
+	Artifacts   []Artifact   `json:"artifacts,omitempty"`
+	Diagnostics []Diagnostic `json:"diagnostics,omitempty"`
+	LimitsHit   []string     `json:"limits_hit,omitempty"`
+	DurationMs  int64        `json:"duration_ms"`
+	Stats       Stats        `json:"stats"`
 }
 
 // FileInfo identifies the analysed input.
@@ -213,4 +216,13 @@ type Property struct {
 	Value  string `json:"value"`
 	Kind   string `json:"kind"` // builtin | custom | variable
 	Source string `json:"source,omitempty"`
+}
+
+// Decryption describes the encryption of a document and the attempt to open
+// it with candidate passwords.
+type Decryption struct {
+	Scheme    string `json:"scheme"`
+	Decrypted bool   `json:"decrypted"`
+	Password  string `json:"password,omitempty"`
+	Note      string `json:"note,omitempty"`
 }

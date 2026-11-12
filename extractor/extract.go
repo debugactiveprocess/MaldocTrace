@@ -44,13 +44,16 @@ type Project struct {
 // Result is the outcome of extraction. Modules and Projects are populated even
 // when a later pipeline stage fails, so earlier evidence is never lost.
 type Result struct {
-	Forms       []FormControl `json:"forms,omitempty"`
-	Format      Format        `json:"format"`
-	Encrypted   bool          `json:"encrypted"`
-	Projects    []*Project    `json:"projects,omitempty"`
-	Modules     []*Module     `json:"modules,omitempty"`
-	Diagnostics []Diagnostic  `json:"diagnostics,omitempty"`
-	LimitsHit   []string      `json:"limits_hit,omitempty"`
+	Forms     []FormControl `json:"forms,omitempty"`
+	Format    Format        `json:"format"`
+	Encrypted bool          `json:"encrypted"`
+	// Decryption describes the encryption scheme and whether a candidate
+	// password opened it (nil when the document is not encrypted).
+	Decryption  *Decryption  `json:"decryption,omitempty"`
+	Projects    []*Project   `json:"projects,omitempty"`
+	Modules     []*Module    `json:"modules,omitempty"`
+	Diagnostics []Diagnostic `json:"diagnostics,omitempty"`
+	LimitsHit   []string     `json:"limits_hit,omitempty"`
 	// DocumentText is the main-story body text of a Word document (paragraphs
 	// end with "\r"); empty when the input is not a Word document.
 	DocumentText string `json:"-"`
@@ -77,6 +80,12 @@ func (r *Result) HasXLM() bool {
 		}
 	}
 	return false
+}
+
+// Unreadable reports whether encryption hid content that could not be
+// decrypted (so absence of macros proves nothing).
+func (r *Result) Unreadable() bool {
+	return r.Encrypted && (r.Decryption == nil || !r.Decryption.Decrypted)
 }
 
 // HasModules reports whether any module source was extracted.
@@ -107,24 +116,8 @@ func Extract(ctx context.Context, data []byte, lim *Limits) (*Result, error) {
 			return res, err
 		}
 	case FormatOOXML:
-		if text, err := ooxmlDocumentText(data, &l); err != nil {
-			res.addDiag("info", "doctext", "document text not extracted: "+err.Error())
-		} else if text != "" {
-			res.DocumentText = text
-		}
-		scanOOXML(data, &l, res)
-		files, diags, err := openZip(data, &l)
-		res.Diagnostics = append(res.Diagnostics, diags...)
-		if err != nil {
+		if err := extractOOXML(ctx, data, &l, res); err != nil {
 			return res, err
-		}
-		for _, nf := range files {
-			if ctx.Err() != nil {
-				return res, ctx.Err()
-			}
-			if err := extractFromCFB(ctx, nf.data, nf.name, &l, res); err != nil {
-				res.addDiag("error", "extract", fmt.Sprintf("nested OLE %s: %v", nf.name, err))
-			}
 		}
 	case FormatRTF:
 		scanRTF(data, res)
@@ -145,12 +138,77 @@ func Extract(ctx context.Context, data []byte, lim *Limits) (*Result, error) {
 	return res, nil
 }
 
+// extractOOXML extracts body text, static findings and nested VBA projects
+// from an OOXML (ZIP) package.
+func extractOOXML(ctx context.Context, data []byte, l *Limits, res *Result) error {
+	if text, err := ooxmlDocumentText(data, l); err != nil {
+		res.addDiag("info", "doctext", "document text not extracted: "+err.Error())
+	} else if text != "" {
+		res.DocumentText = text
+	}
+	scanOOXML(data, l, res)
+	files, diags, err := openZip(data, l)
+	res.Diagnostics = append(res.Diagnostics, diags...)
+	if err != nil {
+		return err
+	}
+	for _, nf := range files {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if err := extractFromCFB(ctx, nf.data, nf.name, l, res); err != nil {
+			res.addDiag("error", "extract", fmt.Sprintf("nested OLE %s: %v", nf.name, err))
+		}
+	}
+	return nil
+}
+
+// extractEncryptedPackage handles an OOXML document wrapped in a CFB
+// container (EncryptionInfo + EncryptedPackage): it tries the candidate
+// passwords and, on success, analyses the decrypted package.
+func extractEncryptedPackage(ctx context.Context, cfb *cfbReader, lim *Limits, res *Result) error {
+	res.Encrypted = true
+	info, err1 := cfb.readStream("EncryptionInfo")
+	pkg, err2 := cfb.readStream("EncryptedPackage")
+	if err1 != nil || err2 != nil {
+		res.Decryption = &Decryption{Scheme: "ECMA-376", Note: "EncryptionInfo or EncryptedPackage stream unreadable"}
+		res.addDiag("warning", "decrypt", "container is encrypted; "+res.Decryption.Note)
+		return Wrap("extract", ErrEncrypted)
+	}
+	plain, dec := openEncryptedPackage(info, pkg, candidatePasswords(lim))
+	res.Decryption = dec
+	if !dec.Decrypted {
+		res.addDiag("warning", "decrypt", fmt.Sprintf("container is encrypted (%s): %s", dec.Scheme, dec.Note))
+		return Wrap("extract", ErrEncrypted)
+	}
+	res.addDiag("info", "decrypt", fmt.Sprintf("decrypted %s with %s", dec.Scheme, describePassword(dec.Password)))
+	if Detect(plain) != FormatOOXML {
+		res.addDiag("warning", "decrypt", "decrypted package is not a ZIP archive")
+		return nil
+	}
+	res.Format = FormatOOXML
+	return extractOOXML(ctx, plain, lim, res)
+}
+
+func describePassword(p string) string {
+	switch p {
+	case "":
+		return "an empty password"
+	case "VelvetSweatshop":
+		return `Excel's default password "VelvetSweatshop"`
+	}
+	return fmt.Sprintf("password %q", p)
+}
+
 // extractFromCFB parses a CFB container and extracts any VBA projects it
 // contains. sourceFile names the nested container (empty for the top level).
 func extractFromCFB(ctx context.Context, data []byte, sourceFile string, lim *Limits, res *Result) error {
 	cfb, err := parseCFB(data, lim)
 	if err != nil {
 		return err
+	}
+	if sourceFile == "" && cfb.find("EncryptionInfo") != nil && cfb.find("EncryptedPackage") != nil {
+		return extractEncryptedPackage(ctx, cfb, lim, res)
 	}
 	if cfb.find("EncryptionInfo") != nil || cfb.find("EncryptedSummary") != nil {
 		res.Encrypted = true
@@ -171,7 +229,7 @@ func extractFromCFB(ctx context.Context, data []byte, sourceFile string, lim *Li
 		}
 		for _, name := range []string{"Workbook", "Book"} {
 			if cfb.find(name) != nil {
-				extractBIFF(cfb, name, res)
+				extractBIFF(cfb, name, lim, res)
 				break
 			}
 		}
