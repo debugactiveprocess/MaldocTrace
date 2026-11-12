@@ -5,6 +5,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Encrypted documents**: Excel's default password `VelvetSweatshop`, common passwords and any `--password` are tried against:
+  - `.xls` workbooks with RC4 or RC4 CryptoAPI `FILEPASS` encryption; cells and Excel 4.0 macro sheets are decrypted and analysed;
+  - OOXML files in an `EncryptionInfo`/`EncryptedPackage` container with ECMA-376 Standard (AES) or Agile encryption.
+
+  The new `decryption` section reports the scheme and the password that worked. Key-derivation work is bounded against hostile `spinCount` values.
+- **Shellcode profiling** for recovered binary payloads: classic and randomized (seeded) ROR13 `block_api` API hashes resolved to `module!function`; `reverse_http(s)` host, port, URI, `User-Agent` and `Host` header, and `reverse_tcp` IP and port, reported as indicators; XOR decoder stubs and single-byte XOR keys that reveal URLs.
+- **PE profiling**: subsystem, entry point, sections with entropy and RWX flags, imports grouped by behaviour, .NET and UPX markers, overlay size and PDB path.
+- Binary payloads stored as hex text across string literals are recovered statically, even when emulation cannot rebuild the buffer.
+- `--password` option for `analyze` (repeatable).
+
+### Fixed
+
+- CFB directories with unused entries between live ones lost every entry after the first gap, so some `.docm` VBA projects were reported as "no VBA storage found".
+- `extract` no longer refuses an encrypted `.xls` whose VBA project was read.
+
+### Changed
+
+- JSON schema bumped to `1.4.0` (additive: `decryption`).
+
 ## [0.2.1] - 2026-11-11
 
 Licensing and packaging release. The analysis is unchanged from 0.2.0.

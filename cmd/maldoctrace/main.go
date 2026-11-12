@@ -16,7 +16,7 @@ const usageText = `MaldocTrace - defensive VBA macro analysis for Office documen
 Usage:
   maldocTrace inspect <file>
   maldocTrace extract <file> --out <dir> [--force]
-  maldocTrace analyze <file> [--format json|text|jsonl] [--timeout 30s] [--max-steps N] [--input-format vba] [--show-strings] [--dump-payloads DIR]
+  maldocTrace analyze <file> [--format json|text|jsonl] [--timeout 30s] [--max-steps N] [--input-format vba] [--show-strings] [--dump-payloads DIR] [--password PW]...
   maldocTrace analyze <dir> --recursive [--format jsonl] [--workers N]
   maldocTrace version
 

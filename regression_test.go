@@ -277,6 +277,39 @@ func TestSampleRegressions(t *testing.T) {
 		if p := r.DecodedPayloads; len(p) != 1 || p[0].Status != "decoded" || !strings.HasPrefix(p[0].Content, "90554889e5") {
 			t.Fatalf("payloads=%+v", p)
 		}
+		facts := strings.Join(r.DecodedPayloads[0].Facts, "; ")
+		if !strings.Contains(facts, "XOR decoder stub at offset 0x24 (key 0x1B)") || !strings.Contains(facts, "single-byte XOR key 0xE4 reveals: http://") {
+			t.Errorf("shellcode profile = %s", facts)
+		}
+		if len(iocValues(r, "url")) == 0 {
+			t.Error("second-stage URL not reported as an IOC")
+		}
+	})
+	for _, c := range []struct{ file, password string }{
+		{"Vendas_Q4_2026_rc4.xls", "VelvetSweatshop"},
+		{"Vendas_Q4_2026_rc4_123456.xls", "123456"},
+	} {
+		t.Run("encrypted xls "+c.password, func(t *testing.T) {
+			r := AnalyzeFromBytes(nil, readSample(t, c.file), c.file, Options{})
+			if d := r.Decryption; d == nil || !d.Decrypted || d.Password != c.password || d.Scheme != "BIFF8 RC4" || r.Macros != "present" {
+				t.Fatalf("decryption=%+v macros=%s", r.Decryption, r.Macros)
+			}
+			if len(r.DecodedPayloads) != 1 || r.DecodedPayloads[0].FileType != "shellcode, x86, reverse_https stager" {
+				t.Fatalf("payloads=%+v", r.DecodedPayloads)
+			}
+			facts := strings.Join(r.DecodedPayloads[0].Facts, "; ")
+			for _, want := range []string{"seeded with 0x30FE5C71", "wininet.dll!InternetConnectA", ":8443/", "HTTP Host header:", "User-Agent: Mozilla/5.0"} {
+				if !strings.Contains(facts, want) {
+					t.Errorf("profile lacks %q: %s", want, facts)
+				}
+			}
+		})
+	}
+	t.Run("cfb with unused directory entries", func(t *testing.T) {
+		r := AnalyzeFromBytes(nil, readSample(t, "Relatorio_Financeiro_Q4_2026.docm"), "docm", Options{})
+		if r.Macros != "present" || len(r.Modules) != 2 {
+			t.Fatalf("macros=%s modules=%+v", r.Macros, r.Modules)
+		}
 	})
 }
 

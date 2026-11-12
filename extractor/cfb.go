@@ -219,7 +219,10 @@ func (r *cfbReader) readDirectory(lim *Limits) error {
 			name := strings.TrimRight(decodeUTF16(eb[0:nameLen], binary.LittleEndian), "\x00")
 			objType := eb[66]
 			if objType == 0 {
-				return nil // empty entry terminates the directory
+				// Unused entries may sit between live ones (the tree links
+				// address entries by index), so keep a placeholder and go on.
+				r.entries = append(r.entries, &cfbEntry{name: "", objType: 0, left: -1, right: -1, child: -1, path: "\x00unused"})
+				continue
 			}
 			left := int32(binary.LittleEndian.Uint32(eb[68:]))
 			right := int32(binary.LittleEndian.Uint32(eb[72:]))
@@ -254,7 +257,7 @@ func (r *cfbReader) buildTree() {
 	visited := make([]bool, len(r.entries))
 	var inOrder func(node int32, parent string)
 	inOrder = func(node int32, parent string) {
-		if node < 0 || int(node) >= len(r.entries) || visited[node] {
+		if node < 0 || int(node) >= len(r.entries) || visited[node] || r.entries[node].objType == 0 {
 			return
 		}
 		visited[node] = true

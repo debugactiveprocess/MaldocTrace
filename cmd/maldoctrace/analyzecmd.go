@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/debugactiveprocess/MaldocTrace/extractor"
 	"os"
 	"path/filepath"
 	goruntime "runtime"
@@ -25,6 +26,8 @@ func runAnalyze(args []string) error {
 	maxSteps := fs.Int("max-steps", 1_000_000, "interpreter step budget per module")
 	inputFormat := fs.String("input-format", "", "force input format (vba)")
 	showStrings := fs.Bool("show-strings", false, "text format: list reconstructed strings (deduplicated, with provenance)")
+	var passwords stringList
+	fs.Var(&passwords, "password", "extra `password` to try on encrypted documents (repeatable; Excel's VelvetSweatshop and common passwords are always tried)")
 	dumpDir := fs.String("dump-payloads", "", "write decoded payloads and dropped files to `dir`/<sha256>/ (neutral extensions, with manifest.json)")
 	if _, err := parse(fs, args); err != nil {
 		if err == flag.ErrHelp {
@@ -66,7 +69,10 @@ func runAnalyze(args []string) error {
 			fmt.Fprintf(os.Stderr, "error dumping payloads of %s: %v\n", r.File.Path, err)
 		}
 	}
+	lim := extractor.DefaultLimits()
+	lim.Passwords = passwords
 	opts := maldoctrace.Options{
+		Limits:        lim,
 		Timeout:       *timeout,
 		RuntimeLimits: varuntime.Limits{MaxSteps: *maxSteps, MaxLoopIterations: 100_000, MaxCallDepth: 200},
 	}
@@ -192,4 +198,14 @@ func isWithin(path, root string) (bool, error) {
 		return false, nil
 	}
 	return rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))), nil
+}
+
+// stringList is a repeatable string flag.
+type stringList []string
+
+func (l *stringList) String() string { return strings.Join(*l, ",") }
+
+func (l *stringList) Set(v string) error {
+	*l = append(*l, v)
+	return nil
 }
