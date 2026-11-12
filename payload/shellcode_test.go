@@ -155,3 +155,26 @@ func FuzzProfileShellcode(f *testing.F) {
 		p.Kind()
 	})
 }
+
+func FuzzDescribePDFAndClassify(f *testing.F) {
+	f.Add([]byte("%PDF-1.4 /OpenAction /J#61vaScript /URI (http://example.invalid/) stream\nx\nendstream"), "a.pdf")
+	f.Add([]byte("@echo off\npowershell -c 1"), "a.bat")
+	f.Fuzz(func(t *testing.T, b []byte, name string) {
+		DescribePDF(b)
+		ClassifyFile(name, b)
+		DescribeBinary(b)
+	})
+}
+
+func TestDescribePDF(t *testing.T) {
+	p := DescribePDF([]byte("%PDF-1.7\n<< /OpenAction 2 0 R /S /J#61vaScript /JS (x) /URI (http://example.invalid/a) >>"))
+	if p.Version != "1.7" || p.Markers["/JavaScript"] != 1 || p.Markers["/OpenAction"] != 1 || len(p.URIs) != 1 || len(p.Active()) != 3 {
+		t.Fatalf("%+v active=%v", p, p.Active())
+	}
+	if k, script := ClassifyFile("x.hta", []byte("<html><HTA:APPLICATION/><script>1</script>")); !script || k != "HTML application (HTA) script" {
+		t.Fatalf("hta: %s %v", k, script)
+	}
+	if k, _ := ClassifyFile("x.lnk", []byte{0x4C, 0, 0, 0, 0x01, 0x14, 0x02, 0, 0}); k != "Windows shortcut (LNK)" {
+		t.Fatalf("lnk: %s", k)
+	}
+}

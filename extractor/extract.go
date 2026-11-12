@@ -3,6 +3,7 @@ package extractor
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -69,6 +70,8 @@ type Result struct {
 	// Checks names the structures that were examined, so an empty result
 	// can say what was looked at.
 	Checks []string `json:"checks,omitempty"`
+	// Embedded lists files carried by OLE objects and embedded documents.
+	Embedded []EmbeddedFile `json:"-"`
 }
 
 // HasXLM reports whether an Excel 4.0 macro sheet with formulas was found.
@@ -243,6 +246,8 @@ func extractFromCFB(ctx context.Context, data []byte, sourceFile string, lim *Li
 		if cfb.find("WordDocument") != nil {
 			scanWordBinary(cfb, res)
 		}
+		n := scanOLEStorages(cfb, res)
+		res.addCheck("OLE object storages: ObjectPool, MBD (" + strconv.Itoa(n) + " object(s))")
 		for _, name := range []string{"Workbook", "Book"} {
 			if cfb.find(name) != nil {
 				extractBIFF(cfb, name, lim, res)

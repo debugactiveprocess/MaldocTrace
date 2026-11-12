@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Added
 
 - **Verdict and risk score**: every report carries `verdict` (`malicious`, `suspicious`, `clean` or `unknown`), `risk_score` (0-100) and `verdict_reasons`, derived from the evidence already collected: recovered commands, static findings by severity (a high-severity DDE field, remote template, linked object, Equation Editor exploit or `Auto_Open` macro sheet alone is malicious; QR-code and picture-hyperlink lures are suspicious), decoded payloads, executable files, auto-run macros, network indicators next to active content, Excel's default encryption password and the verdicts of embedded files. A partial analysis that found nothing is `unknown`, never `clean`. The text report starts with the verdict. Schema 1.6.0.
+- **Embedded objects**: OLE objects are extracted from `.xls` `MBD` storages, `.doc` `ObjectPool` storages and the `word/`, `xl/` and `ppt/embeddings/` folders of OOXML packages:
+  - the `\x01Ole` stream is parsed in all three, so a **linked object whose moniker is a URL** (fetched when the file opens, CVE-2017-0199 style) is a high-severity `external_ole` finding with the URL as an indicator;
+  - OLE Packages (`\x01Ole10Native`) are decoded (label, original path, temp path, data);
+  - the file each object carries (OLE Package data, an OOXML `Package`, a `CONTENTS` stream...) is listed as an artifact and described with the existing PE, shellcode and archive profiling, plus PDF (version, `/JavaScript`, `/JS`, `/OpenAction`, `/AA`, `/Launch`, `/URI`, `/EmbeddedFile`, `/XFA` markers, also inside Flate streams and behind `#xx` name escapes, and the link targets) and scripts (HTA, WSF, VBScript, JScript, batch, PowerShell: findings, indicators and the lines that start programs);
+  - embedded Office documents are analysed recursively (depth limit `MaxNestedDepth`, the same resource limits) and reported under `children`, each with its own verdict; the parent verdict takes the worst one.
+- `--dump-payloads` also writes the files of embedded documents.
 - `--fail-on suspicious|malicious` makes `analyze` exit with code `3` when a file reaches that verdict; without it exit codes are unchanged.
 
 ## [0.3.1] - 2026-11-12

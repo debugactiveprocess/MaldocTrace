@@ -35,6 +35,7 @@ var severityPoints = map[string]int{"high": 40, "medium": 15, "low": 3}
 func isExecutable(fileType string) bool {
 	low := strings.ToLower(fileType)
 	return strings.HasPrefix(low, "pe") || strings.Contains(low, "shellcode") || strings.Contains(low, "executable") ||
+		strings.Contains(low, "shortcut (lnk)") ||
 		strings.Contains(low, "elf") || strings.Contains(low, "mach-o")
 }
 
@@ -84,13 +85,21 @@ func computeVerdict(r *report.Report) {
 	if otherPayload > 0 {
 		add(25, "%d encoded payload(s) or script(s) decoded", otherPayload)
 	}
-	execArt, otherArt := 0, 0
+	execArt, otherArt, scripts := 0, 0, 0
 	for _, a := range r.Artifacts {
-		if isExecutable(a.FileType) {
+		switch {
+		case isExecutable(a.FileType):
 			execArt++
-		} else {
+		case a.Discovery != "observed" && strings.Contains(strings.ToLower(a.FileType), "script"):
+			scripts++
+		case a.Discovery == "observed":
+			// Files found inside the document (embedded objects, archive
+			// members, attachments) are judged by their own analysis.
 			otherArt++
 		}
+	}
+	if scripts > 0 {
+		add(40, "%d script(s) carried by the document", scripts)
 	}
 	if execArt > 0 {
 		add(scoreMalicious, "%d dropped or embedded file(s) are executable code", execArt)
@@ -125,7 +134,7 @@ func computeVerdict(r *report.Report) {
 		if c.Report == nil {
 			continue
 		}
-		if c.Report.RiskScore > 0 {
+		if c.Report.Verdict == "malicious" || c.Report.Verdict == "suspicious" {
 			add(c.Report.RiskScore, "%s %s: %s", strings.ReplaceAll(c.Source, "_", " "), c.Name, c.Report.Verdict)
 		}
 	}

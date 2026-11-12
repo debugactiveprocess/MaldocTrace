@@ -2,7 +2,6 @@ package extractor
 
 import (
 	"encoding/binary"
-	"strconv"
 	"strings"
 )
 
@@ -124,10 +123,4 @@ func scanWordBinary(cfb *cfbReader, res *Result) {
 	}
 	readAttachedTemplate(wd, tbl, table, res)
 	res.addCheck("Word attached template (SttbfAssoc)")
-	if cfb.find("ObjectPool") != nil {
-		n := len(scanObjectPool(cfb, res))
-		res.addCheck("Word ObjectPool (" + strconv.Itoa(n) + " object(s))")
-	} else {
-		res.addCheck("Word ObjectPool (absent)")
-	}
 }

@@ -230,7 +230,7 @@ func RenderTextWith(r *Report, opt TextOptions) string {
 		}
 	}
 	if len(r.Artifacts) > 0 {
-		fmt.Fprintf(&b, "\n-- Reconstructed artifacts --\n")
+		fmt.Fprintf(&b, "\n-- Reconstructed and embedded files --\n")
 		for _, a := range r.Artifacts {
 			fmt.Fprintf(&b, "  %s sha256=%s (%d bytes)\n", a.Path, a.SHA256, a.Size)
 			if a.FileType != "" {
@@ -240,6 +240,10 @@ func RenderTextWith(r *Report, opt TextOptions) string {
 				fmt.Fprintf(&b, "        %s\n", f)
 			}
 		}
+	}
+	if len(r.Children) > 0 {
+		fmt.Fprintf(&b, "\n-- Files found inside (analysed separately; full reports in JSON children) --\n")
+		renderChildren(&b, r.Children, "  ")
 	}
 	if len(r.Checks) > 0 && len(r.StaticFindings) == 0 && len(r.Commands) == 0 && len(r.DecodedPayloads) == 0 &&
 		len(r.Artifacts) == 0 && len(r.MacroSheets) == 0 && len(r.Events) == 0 {
@@ -403,4 +407,42 @@ func binaryLimit(p DecodedPayload) int {
 		return 256
 	}
 	return maxBinaryDisplay
+}
+
+// renderChildren summarises the reports of embedded files, archive members
+// and attachments: verdict, format, findings and commands, recursively.
+func renderChildren(b *strings.Builder, children []Child, pad string) {
+	for _, c := range children {
+		r := c.Report
+		if r == nil {
+			continue
+		}
+		fmt.Fprintf(b, "%s[%s] %s: %s (risk %d) | format %s | status %s | sha256=%s\n", pad, strings.ReplaceAll(c.Source, "_", " "), c.Name,
+			strings.ToUpper(r.Verdict), r.RiskScore, r.Format, r.Status, r.File.SHA256)
+		for i, f := range r.StaticFindings {
+			if i == 10 {
+				fmt.Fprintf(b, "%s    ... %d more findings\n", pad, len(r.StaticFindings)-i)
+				break
+			}
+			fmt.Fprintf(b, "%s    finding %s (%s) %s\n", pad, f.Kind, f.Severity, printable(f.Target, valuePreview, "children"))
+		}
+		for i, cmd := range r.Commands {
+			if i == 5 {
+				fmt.Fprintf(b, "%s    ... %d more commands\n", pad, len(r.Commands)-i)
+				break
+			}
+			fmt.Fprintf(b, "%s    command %s\n", pad, printable(cmd.CommandLine, valuePreview, "children"))
+		}
+		for i, a := range r.Artifacts {
+			if i == 5 {
+				fmt.Fprintf(b, "%s    ... %d more files\n", pad, len(r.Artifacts)-i)
+				break
+			}
+			fmt.Fprintf(b, "%s    file %s (%s, %d bytes)\n", pad, a.Path, a.FileType, a.Size)
+		}
+		if len(r.Indicators) > 0 {
+			fmt.Fprintf(b, "%s    %d indicator(s)\n", pad, len(r.Indicators))
+		}
+		renderChildren(b, r.Children, pad+"    ")
+	}
 }

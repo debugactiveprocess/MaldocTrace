@@ -38,6 +38,22 @@ type dumpManifest struct {
 
 const dumpWarning = "Files may be live malware. They are written with a neutral .bin/.txt extension and must only be handled in an isolated analysis environment."
 
+// dumpTree dumps a report and the reports of the files found inside it.
+func dumpTree(r *report.Report, dir string) ([]string, error) {
+	written, err := dumpPayloads(r, dir)
+	for _, c := range r.Children {
+		if c.Report == nil {
+			continue
+		}
+		w, cerr := dumpTree(c.Report, dir)
+		written = append(written, w...)
+		if err == nil {
+			err = cerr
+		}
+	}
+	return written, err
+}
+
 // dumpPayloads writes every decoded payload and reconstructed artifact of a
 // report to <dir>/<input sha256>/ together with manifest.json. Extensions are
 // neutral (.bin, or .txt for scripts) so nothing is executable by

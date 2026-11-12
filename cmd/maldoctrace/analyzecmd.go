@@ -68,7 +68,7 @@ func runAnalyze(args []string) error {
 		if *dumpDir == "" {
 			return
 		}
-		written, err := dumpPayloads(r, *dumpDir)
+		written, err := dumpTree(r, *dumpDir)
 		dumpMu.Lock()
 		defer dumpMu.Unlock()
 		for _, w := range written {

@@ -1,6 +1,8 @@
 package maldoctrace
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -19,6 +21,22 @@ func iocValues(r *report.Report, typ string) map[string]report.IOC {
 		}
 	}
 	return out
+}
+
+// sha256Hex lets tests check values from real samples (URLs, hosts) by
+// hash, so they never appear in the repository.
+func sha256Hex(s string) string {
+	sum := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(sum[:])
+}
+
+func hasIOCHash(r *report.Report, typ, hash string) bool {
+	for _, i := range r.Indicators {
+		if i.Type == typ && sha256Hex(i.Value) == hash {
+			return true
+		}
+	}
+	return false
 }
 
 func hasEvidence(i report.IOC, id string) bool {
@@ -435,6 +453,34 @@ func TestStaticSampleRegressions(t *testing.T) {
 			}
 		}},
 		{"Contract_Traffix-Docs_7329.docx.bin", []string{"qr_code_lure"}, nil},
+		// Encrypted .xls with empty VBA: the payload is a linked OLE object
+		// (URL moniker) in an MBD storage, next to an embedded workbook that
+		// carries a PDF. The URL is compared by hash.
+		{"0f66f192a1242464e1be30d08bd00972527f8985c2a30ca74b18e5ad457fc688.xls", []string{"external_ole"}, func(t *testing.T, r *report.Report) {
+			if r.Verdict != "malicious" {
+				t.Errorf("verdict = %s", r.Verdict)
+			}
+			const urlHash = "0ff79751096d815f2b452344f22b84e01c9736bc472236f46d3989989bd28d07"
+			var found bool
+			for _, f := range r.StaticFindings {
+				if f.Kind == "external_ole" && f.Location == "MBD002FAFCA" && sha256Hex(f.Target) == urlHash {
+					found = true
+				}
+			}
+			if !found || !hasIOCHash(r, "url", urlHash) {
+				t.Errorf("linked URL not reported")
+			}
+			if len(r.Children) != 1 || r.Children[0].Name != "MBD002FAFC9/Package" {
+				t.Fatalf("children = %+v", r.Children)
+			}
+			var pdf bool
+			for _, a := range r.Children[0].Report.Artifacts {
+				pdf = pdf || a.FileType == "PDF document"
+			}
+			if !pdf {
+				t.Error("embedded PDF not described")
+			}
+		}},
 	}
 	for _, c := range cases {
 		t.Run(c.file, func(t *testing.T) {

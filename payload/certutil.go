@@ -89,8 +89,9 @@ func DescribeBinary(b []byte) (string, []string) {
 		return describeZip(b)
 	case bytes.HasPrefix(b, []byte{0xD0, 0xCF, 0x11, 0xE0}):
 		return "OLE/CFB compound file", nil
-	case bytes.HasPrefix(b, []byte("%PDF")):
-		return "PDF document", nil
+	}
+	if i := bytes.Index(b[:min(len(b), 1024)], []byte("%PDF-")); i >= 0 {
+		return "PDF document", DescribePDF(b[i:]).Facts()
 	}
 	return "", nil
 }
