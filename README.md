@@ -107,7 +107,9 @@ maldocTrace version
 | `--input-format vba` | Analyze a plain-text VBA file. |
 | `--timeout`, `--max-steps` | Per-file time budget and interpreter step budget. |
 
-Exit codes: `0` success (even when the sample is malicious), `1` analysis or internal error, `2` usage error.
+Exit codes: `0` success (even when the sample is malicious), `1` analysis or internal error, `2` usage error, `3` the `--fail-on` threshold was met.
+
+Every report starts with a **verdict** (`malicious`, `suspicious`, `clean` or `unknown`), a risk score from 0 to 100 and the reasons that produced it. The score adds up the evidence: recovered commands, static findings by severity (a high-severity DDE field, remote template, linked object, Equation Editor exploit or `Auto_Open` macro sheet alone is malicious), decoded payloads, executable files, macros with auto-run entry points, network indicators, Excel's default encryption password, and the verdicts of embedded files. A partial analysis (timeout, limit hit, unknown password) that found nothing is `unknown`, never `clean`. The JSON field `checks` lists what was examined. For pipelines, `--fail-on suspicious` or `--fail-on malicious` turns the verdict into exit code `3`.
 
 ---
 

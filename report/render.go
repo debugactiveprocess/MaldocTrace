@@ -34,6 +34,14 @@ func RenderText(r *Report) string { return RenderTextWith(r, TextOptions{}) }
 // RenderTextWith renders a human-readable summary of the report.
 func RenderTextWith(r *Report, opt TextOptions) string {
 	var b strings.Builder
+	fmt.Fprintf(&b, "Verdict: %s (risk %d/100)\n", strings.ToUpper(r.Verdict), r.RiskScore)
+	for i, reason := range r.VerdictReasons {
+		if i == 8 {
+			fmt.Fprintf(&b, "  ... %d more in JSON verdict_reasons\n", len(r.VerdictReasons)-i)
+			break
+		}
+		fmt.Fprintf(&b, "  %s\n", reason)
+	}
 	fmt.Fprintf(&b, "MaldocTrace %s (schema %s)\n", r.ToolVersion, r.SchemaVersion)
 	fmt.Fprintf(&b, "File: %s (%d bytes)\n", r.File.Name, r.File.Size)
 	fmt.Fprintf(&b, "SHA-256: %s\n", r.File.SHA256)

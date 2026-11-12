@@ -1,8 +1,10 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"io"
+	"os"
 	"reflect"
 	"testing"
 
@@ -76,5 +78,26 @@ func TestCommandHelp(t *testing.T) {
 		if err := run([]string{"--help"}); err != flag.ErrHelp {
 			t.Errorf("expected help, got %v", err)
 		}
+	}
+}
+
+func TestFailOn(t *testing.T) {
+	dir := t.TempDir()
+	p := dir + "/m.bas"
+	src := "Sub AutoOpen()" + string(rune(13)) + string(rune(10)) + "Shell \"cmd.exe /c calc.exe\"" + string(rune(13)) + string(rune(10)) + "End Sub"
+	if err := os.WriteFile(p, []byte(src), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	devnull, _ := os.Open(os.DevNull)
+	old := os.Stdout
+	os.Stdout, _ = os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+	defer func() { os.Stdout = old; devnull.Close() }()
+	err := runAnalyze([]string{p, "--input-format", "vba", "--fail-on", "malicious"})
+	var fe failOnErr
+	if !errors.As(err, &fe) || fe.files != 1 {
+		t.Fatalf("err = %v", err)
+	}
+	if err := runAnalyze([]string{p, "--fail-on", "bogus"}); !isUsage(err) {
+		t.Fatalf("bad level: %v", err)
 	}
 }

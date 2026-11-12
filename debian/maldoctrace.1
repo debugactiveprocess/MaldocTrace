@@ -77,6 +77,12 @@ Extra password to try on encrypted documents, before the built-in list
 (Excel's default password VelvetSweatshop and common passwords).
 May be repeated.
 .TP
+.BI \-\-fail\-on " level"
+Exit with status 3 when the verdict of an analyzed file is at least
+.I level
+(\fBsuspicious\fR or \fBmalicious\fR). Without it the exit status does not
+depend on the verdict.
+.TP
 .B \-\-recursive
 Analyze every file under a directory.
 .TP
@@ -92,6 +98,9 @@ Analysis or internal error.
 .TP
 .B 2
 Usage error.
+.TP
+.B 3
+\-\-fail\-on was given and at least one file reached that verdict.
 .SH EXAMPLES
 .nf
 maldoctrace analyze suspicious.doc

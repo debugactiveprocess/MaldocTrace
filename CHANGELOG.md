@@ -5,6 +5,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Verdict and risk score**: every report carries `verdict` (`malicious`, `suspicious`, `clean` or `unknown`), `risk_score` (0-100) and `verdict_reasons`, derived from the evidence already collected: recovered commands, static findings by severity (a high-severity DDE field, remote template, linked object, Equation Editor exploit or `Auto_Open` macro sheet alone is malicious; QR-code and picture-hyperlink lures are suspicious), decoded payloads, executable files, auto-run macros, network indicators next to active content, Excel's default encryption password and the verdicts of embedded files. A partial analysis that found nothing is `unknown`, never `clean`. The text report starts with the verdict. Schema 1.6.0.
+- `--fail-on suspicious|malicious` makes `analyze` exit with code `3` when a file reaches that verdict; without it exit codes are unchanged.
+
 ## [0.3.1] - 2026-11-12
 
 Document-variable droppers and the Word 97-2003 static checks.

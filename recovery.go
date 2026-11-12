@@ -357,4 +357,5 @@ func finalizeReport(r *report.Report) {
 		r.SemanticCoverage = "partial"
 	}
 	r.Stats.IOCCount = len(r.IOCs)
+	computeVerdict(r)
 }

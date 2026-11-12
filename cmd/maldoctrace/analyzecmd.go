@@ -28,6 +28,7 @@ func runAnalyze(args []string) error {
 	showStrings := fs.Bool("show-strings", false, "text format: list reconstructed strings (deduplicated, with provenance)")
 	var passwords stringList
 	fs.Var(&passwords, "password", "extra `password` to try on encrypted documents (repeatable; Excel's VelvetSweatshop and common passwords are always tried)")
+	failOn := fs.String("fail-on", "", "exit with code 3 when a file's verdict is at least `level` (suspicious or malicious)")
 	dumpDir := fs.String("dump-payloads", "", "write decoded payloads and dropped files to `dir`/<sha256>/ (neutral extensions, with manifest.json)")
 	if _, err := parse(fs, args); err != nil {
 		if err == flag.ErrHelp {
@@ -44,6 +45,9 @@ func runAnalyze(args []string) error {
 	if *showStrings && *format != "text" {
 		return usagef("--show-strings applies to --format text (JSON always includes decoded_strings)")
 	}
+	if *failOn != "" && *failOn != "suspicious" && *failOn != "malicious" {
+		return usagef("--fail-on must be suspicious or malicious")
+	}
 	if *inputFormat != "" && *inputFormat != "vba" {
 		return usagef("unknown --input-format %q", *inputFormat)
 	}
@@ -54,7 +58,13 @@ func runAnalyze(args []string) error {
 	}
 	var dumpMu sync.Mutex
 	dumpFailed := false
+	failed := 0
 	post := func(r *report.Report) {
+		if *failOn != "" && maldoctrace.VerdictAtLeast(r.Verdict, *failOn) {
+			dumpMu.Lock()
+			failed++
+			dumpMu.Unlock()
+		}
 		if *dumpDir == "" {
 			return
 		}
@@ -102,6 +112,9 @@ func runAnalyze(args []string) error {
 	err = runFormat(*format, files, opts, *workers, *inputFormat, *showStrings, post)
 	if err == nil && dumpFailed {
 		err = fmt.Errorf("one or more payload dumps failed")
+	}
+	if err == nil && failed > 0 {
+		err = failOnErr{verdict: *failOn, files: failed}
 	}
 	return err
 }
