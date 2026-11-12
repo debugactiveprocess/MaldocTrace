@@ -1,3 +1,11 @@
+maldoctrace (0.3.1-0kali1) kali-dev; urgency=medium
+
+  * New upstream release: document-variable droppers (StwUser, ADODB.Stream,
+    MSXML bin.base64) and static checks for Word 97-2003 documents (fields
+    in every story, attached template, ObjectPool objects). See CHANGELOG.md.
+
+ -- Ialle Teixeira <49375302+debugactiveprocess@users.noreply.github.com>  Thu, 12 Nov 2026 18:00:00 -0300
+
 maldoctrace (0.3.0-0kali1) kali-dev; urgency=medium
 
   * New upstream release: decryption of encrypted .xls (RC4, RC4 CryptoAPI)
