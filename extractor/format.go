@@ -22,6 +22,12 @@ const (
 	FormatFlatOPC
 	// FormatMHT is an MHT/MHTML document (possibly carrying ActiveMime).
 	FormatMHT
+	// FormatSYLK is a SYLK spreadsheet (.slk).
+	FormatSYLK
+	// FormatIQY is an Excel web query (.iqy).
+	FormatIQY
+	// FormatCSV is a CSV file with DDE formulas.
+	FormatCSV
 )
 
 func (f Format) String() string {
@@ -40,6 +46,12 @@ func (f Format) String() string {
 		return "flatopc"
 	case FormatMHT:
 		return "mht"
+	case FormatSYLK:
+		return "sylk"
+	case FormatIQY:
+		return "iqy"
+	case FormatCSV:
+		return "csv"
 	default:
 		return "unknown"
 	}

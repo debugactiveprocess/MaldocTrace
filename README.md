@@ -112,6 +112,10 @@ maldocTrace version
 
 Word also opens documents that are not `.doc` or `.docx` containers, and droppers use them because many scanners do not look inside: Word 2003 XML (`w:wordDocument`, with the VBA project as a base64 ActiveMime blob in `w:binData`), Flat OPC (`pkg:package`, every OOXML part inline) and MHT/MHTML web archives with an ActiveMime part. MaldocTrace decodes them in memory and analyses the VBA project, fields and templates they carry like any other document.
 
+### SYLK, IQY and CSV
+
+Excel opens text spreadsheets without the protections of a workbook. SYLK files (`.slk`) can be Excel 4.0 macro sheets with an `Auto_Open` name: their cells are rebuilt and emulated like an `.xls` macro sheet. IQY web queries make Excel fetch a URL (reported as a high-severity finding), and CSV cells with DDE formulas (`=cmd|' /c ...'!A0`) are reported as DDE.
+
 ### OneNote
 
 OneNote sections (`.one`) are a common dropper since Office blocked internet macros: a lure picture sits over an embedded HTA, batch file, script, shortcut or executable. MaldocTrace extracts every embedded file, classifies it by content, reports scripts (with the commands and indicators in them) and executables, and analyses embedded documents as children.

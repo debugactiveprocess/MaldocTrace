@@ -142,6 +142,12 @@ func Extract(ctx context.Context, data []byte, lim *Limits) (*Result, error) {
 		return res, extractFlatOPC(ctx, data, &l, res)
 	case FormatMHT:
 		return res, extractMHT(ctx, data, &l, res)
+	case FormatSYLK:
+		return res, extractSYLK(data, &l, res)
+	case FormatIQY:
+		return res, extractIQY(data, res)
+	case FormatCSV:
+		return res, extractDDECSV(data, res)
 	case FormatVBA:
 		code := string(data)
 		res.Modules = append(res.Modules, &Module{

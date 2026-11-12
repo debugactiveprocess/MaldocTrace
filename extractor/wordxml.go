@@ -34,6 +34,10 @@ func detectEvasive(data []byte) Format {
 	}
 	low := bytes.ToLower(head)
 	switch {
+	case isSYLK(data):
+		return FormatSYLK
+	case isIQY(data):
+		return FormatIQY
 	case bytes.Contains(low, []byte("<pkg:package")):
 		return FormatFlatOPC
 	case bytes.Contains(low, []byte("<w:worddocument")):
@@ -45,6 +49,8 @@ func detectEvasive(data []byte) Format {
 		// A Word document saved as a web page (an HTML email with inline
 		// images is multipart/related too, without the Word namespace).
 		return FormatMHT
+	case isDDECSV(head):
+		return FormatCSV
 	}
 	return FormatUnknown
 }

@@ -23,6 +23,7 @@ var attackFindings = map[string]bool{
 	"external_subdocument":    true,
 	"equation_editor_exploit": true,
 	"xlm_auto_open":           true,
+	"external_web_query":      true,
 }
 
 // lureFindings are phishing lures (no code, but a click or scan away from
