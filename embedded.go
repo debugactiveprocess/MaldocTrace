@@ -31,7 +31,7 @@ func recursable(data []byte) bool {
 	case extractor.FormatCFB, extractor.FormatOOXML, extractor.FormatRTF:
 		return true
 	}
-	return false
+	return extractor.DetectContainer(data) != ""
 }
 
 // processChildren describes every child file as an artifact, reports active

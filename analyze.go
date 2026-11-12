@@ -70,6 +70,12 @@ func AnalyzeFromBytes(parent context.Context, data []byte, path string, opts Opt
 	}
 	start := time.Now()
 
+	if kind := extractor.DetectContainer(data); kind != "" {
+		r.Format = kind
+		runStage(r, kind, func() { analyzeContainer(ctx, kind, data, r, opts) })
+		return finishReport(ctx, r, start)
+	}
+
 	var res *extractor.Result
 	var extractErr error
 	if !runStage(r, "extract", func() { res, extractErr = extractor.Extract(ctx, data, &opts.Limits) }) || res == nil {
@@ -130,6 +136,12 @@ func AnalyzeFromBytes(parent context.Context, data []byte, path string, opts Opt
 		runStage(r, "emulation", func() { runEmulation(ctx, res, r, opts) })
 	}
 
+	return finishReport(ctx, r, start)
+}
+
+// finishReport settles the status, runs the post-processing and the
+// verdict, and records the duration.
+func finishReport(ctx context.Context, r *report.Report, start time.Time) *report.Report {
 	if r.Status == "failed" {
 		// keep failed: a recovered panic must stay visible in the status
 	} else if ctx.Err() != nil {

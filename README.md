@@ -108,6 +108,12 @@ maldocTrace version
 | `--input-format vba` | Analyze a plain-text VBA file. |
 | `--timeout`, `--max-steps` | Per-file time budget and interpreter step budget. |
 
+### Archives
+
+Samples usually travel in password-protected archives. `analyze` opens ZIP (ZipCrypto and WinZip AES) and 7z archives in memory, trying `infected`, `malware`, `virus` and any `--password`, and analyses every member. Nothing is written to disk. Office documents, emails and nested archives inside get their own report under `children`; scripts and executables are listed with their hash and type. Bomb protection: at most 512 members, 64 MiB per member, 512 MiB in total and a bounded compression ratio.
+
+7z support uses [github.com/bodgit/sevenzip](https://github.com/bodgit/sevenzip) (BSD-3-Clause). It is the only third-party dependency besides `golang.org/x/text`, with its own decompressors (`klauspost/compress`, `ulikunitz/xz`, `andybalholm/brotli`, `pierrec/lz4`).
+
 Exit codes: `0` success (even when the sample is malicious), `1` analysis or internal error, `2` usage error, `3` the `--fail-on` threshold was met.
 
 Every report starts with a **verdict** (`malicious`, `suspicious`, `clean` or `unknown`), a risk score from 0 to 100 and the reasons that produced it. The score adds up the evidence: recovered commands, static findings by severity (a high-severity DDE field, remote template, linked object, Equation Editor exploit or `Auto_Open` macro sheet alone is malicious), decoded payloads, executable files, macros with auto-run entry points, network indicators, Excel's default encryption password, and the verdicts of embedded files. A partial analysis (timeout, limit hit, unknown password) that found nothing is `unknown`, never `clean`. The JSON field `checks` lists what was examined. For pipelines, `--fail-on suspicious` or `--fail-on malicious` turns the verdict into exit code `3`.

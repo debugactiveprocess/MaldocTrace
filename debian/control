@@ -6,6 +6,8 @@ Uploaders: Ialle Teixeira <49375302+debugactiveprocess@users.noreply.github.com>
 Build-Depends: debhelper-compat (= 13),
                dh-sequence-golang,
                golang-any (>= 2:1.23~),
+               golang-github-bodgit-sevenzip-dev,
+               golang-github-ulikunitz-xz-dev,
                golang-golang-x-text-dev
 Standards-Version: 4.7.0
 Homepage: https://github.com/debugactiveprocess/MaldocTrace
@@ -27,7 +29,9 @@ Description: analyzer for malicious Office documents with VBA/XLM emulation
  procedure and line, or sheet and cell, that produced it.
  .
  Supported inputs are OLE/CFB (.doc, .xls, .ppt),
- OOXML (.docx, .docm, .xlsx, .xlsm, .pptm), RTF and plain VBA text.
+ OOXML (.docx, .docm, .xlsx, .xlsm, .pptm), RTF and plain VBA text, also
+ inside ZIP and 7z archives (encrypted ones are tried with the usual
+ sample passwords) and analyzed in memory.
  It also reports macro-less techniques such as remote template injection,
  external OLE objects, DDE fields, RTF Equation Editor exploits and VBA
  stomping.
