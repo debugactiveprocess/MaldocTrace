@@ -1,0 +1,6 @@
+Test-Command: maldoctrace version
+Depends: @
+Restrictions: superficial
+
+Tests: analyze-vba
+Depends: @

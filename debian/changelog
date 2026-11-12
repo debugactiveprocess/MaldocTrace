@@ -1,0 +1,5 @@
+maldoctrace (0.2.1-0kali1) kali-dev; urgency=medium
+
+  * Initial release (https://bugs.kali.org/view.php?id=9968).
+
+ -- Ialle Teixeira <49375302+debugactiveprocess@users.noreply.github.com>  Wed, 11 Nov 2026 20:00:00 -0300

@@ -1,0 +1,101 @@
+.TH MALDOCTRACE 1 "November 2026" "maldoctrace 0.2.1" "User Commands"
+.SH NAME
+maldoctrace \- analyze malicious Office documents by emulating VBA and Excel 4.0 macros
+.SH SYNOPSIS
+.B maldoctrace inspect
+.I file
+.br
+.B maldoctrace extract
+.I file
+.B \-\-out
+.I dir
+.RB [ \-\-force ]
+.br
+.B maldoctrace analyze
+.I file
+.RI [ options ]
+.br
+.B maldoctrace analyze
+.I dir
+.B \-\-recursive
+.RI [ options ]
+.br
+.B maldoctrace version
+.SH DESCRIPTION
+.B maldoctrace
+extracts VBA and Excel 4.0 (XLM) macros from Office documents, deobfuscates
+them and emulates them in a fully simulated environment. No process is started,
+no network request is made and no COM object is created. The report shows the
+commands the document would run, the payloads it would decode or drop and the
+indicators it contains, each traced back to the module, procedure and line, or
+sheet and cell, that produced it.
+.PP
+Supported inputs are OLE/CFB (.doc, .xls, .ppt), OOXML (.docx, .docm,
+\&.xlsx, .xlsm, .pptm), RTF and plain VBA text. Documents without macros are checked for
+remote template injection, external OLE objects, DDE fields, RTF Equation Editor
+exploits and VBA stomping.
+.SH COMMANDS
+.TP
+.B inspect
+Print an overview of the container: format, streams and macro modules.
+.TP
+.B extract
+Write the decompressed VBA modules to the directory given with
+.BR \-\-out .
+.B \-\-force
+overwrites existing files.
+.TP
+.B analyze
+Extract, deobfuscate and emulate the macros and print a report.
+.TP
+.B version
+Print the version and the JSON report schema version.
+.SH ANALYZE OPTIONS
+.TP
+.BI \-\-format " text|json|jsonl"
+Output format (default: text). jsonl prints one JSON object per file.
+.TP
+.BI \-\-timeout " duration"
+Per-file analysis timeout, for example 30s (default: 2m0s).
+.TP
+.BI \-\-max\-steps " N"
+Interpreter step budget per module (default: 1000000).
+.TP
+.BI \-\-input\-format " vba"
+Treat the input as plain VBA source text.
+.TP
+.B \-\-show\-strings
+In text output, list the reconstructed strings with their locations.
+.TP
+.BI \-\-dump\-payloads " dir"
+Write decoded payloads and dropped files to
+.IR dir / sha256 /
+with neutral extensions and a manifest.json.
+.TP
+.B \-\-recursive
+Analyze every file under a directory.
+.TP
+.BI \-\-workers " N"
+Number of files analyzed in parallel in recursive mode (default: 20).
+.SH EXIT STATUS
+.TP
+.B 0
+Success, even when suspicious indicators are found.
+.TP
+.B 1
+Analysis or internal error.
+.TP
+.B 2
+Usage error.
+.SH EXAMPLES
+.nf
+maldoctrace analyze suspicious.doc
+maldoctrace analyze suspicious.xls \-\-format json
+maldoctrace analyze sample.docm \-\-dump\-payloads ./out
+maldoctrace analyze ./quarantine \-\-recursive \-\-format jsonl
+maldoctrace extract suspicious.doc \-\-out ./vba
+.fi
+.SH SEE ALSO
+.BR olevba (1)
+.PP
+https://github.com/debugactiveprocess/MaldocTrace
