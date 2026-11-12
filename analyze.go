@@ -19,7 +19,7 @@ import (
 
 // Version is the tool version reported in output. Release builds set it
 // from the git tag: -ldflags "-X maldoctrace.Version=1.2.3".
-var Version = "0.3.0"
+var Version = "0.3.1"
 
 // Options configures an analysis run.
 type Options struct {
@@ -112,6 +112,7 @@ func AnalyzeFromBytes(parent context.Context, data []byte, path string, opts Opt
 	for _, d := range res.Diagnostics {
 		r.Diagnostics = append(r.Diagnostics, report.Diagnostic{Severity: d.Severity, Stage: d.Stage, Message: d.Message})
 	}
+	r.Checks = append(r.Checks, res.Checks...)
 	for _, l := range res.LimitsHit {
 		r.LimitsHit = append(r.LimitsHit, l)
 	}

@@ -5,7 +5,7 @@ package report
 import "github.com/debugactiveprocess/MaldocTrace/vba/runtime"
 
 // SchemaVersion is the version of the JSON schema emitted by this tool.
-const SchemaVersion = "1.4.0"
+const SchemaVersion = "1.5.0"
 
 // Report is the top-level, self-contained analysis result for one file.
 type Report struct {
@@ -42,8 +42,11 @@ type Report struct {
 	Artifacts   []Artifact   `json:"artifacts,omitempty"`
 	Diagnostics []Diagnostic `json:"diagnostics,omitempty"`
 	LimitsHit   []string     `json:"limits_hit,omitempty"`
-	DurationMs  int64        `json:"duration_ms"`
-	Stats       Stats        `json:"stats"`
+	// Checks names the structures that were examined (macros, fields,
+	// templates, embedded objects...), so a clean result says what it covers.
+	Checks     []string `json:"checks,omitempty"`
+	DurationMs int64    `json:"duration_ms"`
+	Stats      Stats    `json:"stats"`
 }
 
 // FileInfo identifies the analysed input.

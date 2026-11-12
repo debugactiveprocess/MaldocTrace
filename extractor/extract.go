@@ -66,6 +66,9 @@ type Result struct {
 	Names []DefinedName `json:"names,omitempty"`
 	// Properties are document properties and document variables.
 	Properties []DocProperty `json:"properties,omitempty"`
+	// Checks names the structures that were examined, so an empty result
+	// can say what was looked at.
+	Checks []string `json:"checks,omitempty"`
 }
 
 // HasXLM reports whether an Excel 4.0 macro sheet with formulas was found.
@@ -90,6 +93,15 @@ func (r *Result) Unreadable() bool {
 
 // HasModules reports whether any module source was extracted.
 func (r *Result) HasModules() bool { return len(r.Modules) > 0 }
+
+func (r *Result) addCheck(c string) {
+	for _, x := range r.Checks {
+		if x == c {
+			return
+		}
+	}
+	r.Checks = append(r.Checks, c)
+}
 
 func (r *Result) addDiag(sev, stage, msg string) {
 	r.Diagnostics = append(r.Diagnostics, Diagnostic{Severity: sev, Stage: stage, Message: msg})
@@ -147,6 +159,7 @@ func extractOOXML(ctx context.Context, data []byte, l *Limits, res *Result) erro
 		res.DocumentText = text
 	}
 	scanOOXML(data, l, res)
+	res.addCheck("VBA projects (vbaProject.bin) and forms")
 	files, diags, err := openZip(data, l)
 	res.Diagnostics = append(res.Diagnostics, diags...)
 	if err != nil {
@@ -227,8 +240,8 @@ func extractFromCFB(ctx context.Context, data []byte, sourceFile string, lim *Li
 		if cfb.find("WordDocument") != nil {
 			readWordVariables(cfb, res)
 		}
-		if res.DocumentText != "" {
-			scanFieldCodes(res.DocumentText, "WordDocument", res)
+		if cfb.find("WordDocument") != nil {
+			scanWordBinary(cfb, res)
 		}
 		for _, name := range []string{"Workbook", "Book"} {
 			if cfb.find(name) != nil {
@@ -236,6 +249,10 @@ func extractFromCFB(ctx context.Context, data []byte, sourceFile string, lim *Li
 				break
 			}
 		}
+	}
+	if sourceFile == "" {
+		res.addCheck("OLE document properties")
+		res.addCheck("VBA projects and forms")
 	}
 	storages := cfb.storageByLeafName("VBA")
 	extractForms(cfb, sourceFile, res)

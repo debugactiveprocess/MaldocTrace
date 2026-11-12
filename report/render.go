@@ -233,6 +233,13 @@ func RenderTextWith(r *Report, opt TextOptions) string {
 			}
 		}
 	}
+	if len(r.Checks) > 0 && len(r.StaticFindings) == 0 && len(r.Commands) == 0 && len(r.DecodedPayloads) == 0 &&
+		len(r.Artifacts) == 0 && len(r.MacroSheets) == 0 && len(r.Events) == 0 {
+		fmt.Fprintln(&b, "\n-- Nothing found; checked --")
+		for _, c := range r.Checks {
+			fmt.Fprintf(&b, "  %s\n", c)
+		}
+	}
 	if len(r.Decoded) > 0 {
 		if opt.ShowStrings {
 			renderStrings(&b, r.Decoded)
