@@ -5,6 +5,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-12
+
+Encrypted Office documents, shellcode and PE profiling.
+
+### Downloads
+
+| Platform | Archive |
+|---|---|
+| Windows x64 / ARM64 | `maldocTrace_0.3.0_windows_amd64.zip`, `maldocTrace_0.3.0_windows_arm64.zip` |
+| Linux x64 / ARM64 | `maldocTrace_0.3.0_linux_amd64.tar.gz`, `maldocTrace_0.3.0_linux_arm64.tar.gz` |
+| macOS Intel / Apple Silicon | `maldocTrace_0.3.0_darwin_amd64.tar.gz`, `maldocTrace_0.3.0_darwin_arm64.tar.gz` |
+
+You can verify downloads against `checksums.txt` (SHA-256). The binaries are static and have no dependencies. The macOS builds are not notarized, so remove the quarantine flag before running them: `xattr -d com.apple.quarantine maldocTrace`.
+
 ### Added
 
 - **Encrypted documents**: Excel's default password `VelvetSweatshop`, common passwords and any `--password` are tried against:
@@ -137,5 +151,8 @@ You can verify downloads against `checksums.txt` (SHA-256). The binaries are sta
   - `--dump-payloads DIR` to write decoded payloads and dropped files with neutral extensions and a `manifest.json`.
 - **Robustness**: each pipeline stage recovers from panics and records them as diagnostics. The VBA pipeline and container parsers are fuzzed.
 
-[Unreleased]: https://github.com/debugactiveprocess/MaldocTrace/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/debugactiveprocess/MaldocTrace/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/debugactiveprocess/MaldocTrace/releases/tag/v0.3.0
+[0.2.1]: https://github.com/debugactiveprocess/MaldocTrace/releases/tag/v0.2.1
+[0.2.0]: https://github.com/debugactiveprocess/MaldocTrace/releases/tag/v0.2.0
 [0.1.0]: https://github.com/debugactiveprocess/MaldocTrace/releases/tag/v0.1.0
