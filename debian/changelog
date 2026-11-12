@@ -1,3 +1,11 @@
+maldoctrace (0.3.0-0kali1) kali-dev; urgency=medium
+
+  * New upstream release: decryption of encrypted .xls (RC4, RC4 CryptoAPI)
+    and OOXML (ECMA-376 Standard and Agile) documents, and static profiling
+    of recovered shellcode and PE payloads. See CHANGELOG.md.
+
+ -- Ialle Teixeira <49375302+debugactiveprocess@users.noreply.github.com>  Thu, 12 Nov 2026 12:00:00 -0300
+
 maldoctrace (0.2.1-0kali1) kali-dev; urgency=medium
 
   * Initial release (https://bugs.kali.org/view.php?id=9968).

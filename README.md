@@ -66,7 +66,7 @@ Requires Go 1.23+. The only dependency is `golang.org/x/text`.
 Install a tagged release:
 
 ```bash
-go install github.com/debugactiveprocess/MaldocTrace/cmd/maldoctrace@v0.2.1
+go install github.com/debugactiveprocess/MaldocTrace/cmd/maldoctrace@v0.3.0
 ```
 
 Or build from a release tarball or a clone:
