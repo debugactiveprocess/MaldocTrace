@@ -30,7 +30,9 @@ type Dim struct {
 	Type   string
 	Init   Expr
 	ReDim  bool
-	Static bool
+	// Preserve is set for "ReDim Preserve".
+	Preserve bool
+	Static   bool
 }
 
 func (s *Dim) stmtNode() {}

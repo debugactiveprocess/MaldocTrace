@@ -73,7 +73,7 @@ func (rt *Interp) condTruth(e ast.Expr) bool {
 }
 
 func (rt *Interp) execDim(d *ast.Dim) {
-	if d.ReDim {
+	if d.ReDim && len(d.Bounds) == 0 {
 		return
 	}
 	name := strings.ToLower(d.Name)
@@ -101,7 +101,18 @@ func (rt *Interp) execDim(d *ast.Dim) {
 		for i := range elems {
 			elems[i] = VEmpty
 		}
+		if old, ok := rt.arrays[name]; ok && d.Preserve {
+			copy(elems, old.elems)
+		}
 		rt.arrays[name] = &arrayData{lower: lower, elems: elems}
+		if d.ReDim {
+			// A variable declared without bounds (Dim x / Dim x()) now
+			// holds the array; it shares the element slice, so element
+			// assignments are visible through the variable too.
+			if _, ok := rt.getVar(name); ok {
+				rt.setVar(name, VArray(elems))
+			}
+		}
 		return
 	}
 	if d.Init != nil {

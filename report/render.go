@@ -23,6 +23,9 @@ const (
 	maxBinaryDisplay = 4096
 	// maxFormulaLines bounds formula listings in text output.
 	maxFormulaLines = 300
+	// maxPropertyLines caps the document properties and variables shown in
+	// text output (droppers can split a payload across hundreds of them).
+	maxPropertyLines = 12
 )
 
 // RenderText renders a human-readable summary with default options.
@@ -171,7 +174,11 @@ func RenderTextWith(r *Report, opt TextOptions) string {
 	}
 	if len(props) > 0 {
 		fmt.Fprintln(&b, "\n-- Document properties and variables --")
-		for _, p := range props {
+		for i, p := range props {
+			if i == maxPropertyLines {
+				fmt.Fprintf(&b, "  ... %d more in JSON document_properties\n", len(props)-i)
+				break
+			}
 			fmt.Fprintf(&b, "  [%s] %s = %s\n", p.Kind, p.Name, printable(abbr(p.Value), valuePreview, "document_properties"))
 		}
 	}
@@ -218,6 +225,19 @@ func RenderTextWith(r *Report, opt TextOptions) string {
 		fmt.Fprintf(&b, "\n-- Reconstructed artifacts --\n")
 		for _, a := range r.Artifacts {
 			fmt.Fprintf(&b, "  %s sha256=%s (%d bytes)\n", a.Path, a.SHA256, a.Size)
+			if a.FileType != "" {
+				fmt.Fprintf(&b, "      File type: %s\n", a.FileType)
+			}
+			for _, f := range a.Facts {
+				fmt.Fprintf(&b, "        %s\n", f)
+			}
+		}
+	}
+	if len(r.Checks) > 0 && len(r.StaticFindings) == 0 && len(r.Commands) == 0 && len(r.DecodedPayloads) == 0 &&
+		len(r.Artifacts) == 0 && len(r.MacroSheets) == 0 && len(r.Events) == 0 {
+		fmt.Fprintln(&b, "\n-- Nothing found; checked --")
+		for _, c := range r.Checks {
+			fmt.Fprintf(&b, "  %s\n", c)
 		}
 	}
 	if len(r.Decoded) > 0 {

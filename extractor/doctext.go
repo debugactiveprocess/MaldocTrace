@@ -23,7 +23,12 @@ const maxDocText = 16 << 20
 
 // wordBinaryText extracts the main-document text of a Word 97-2003 file
 // ([MS-DOC] FIB → Clx → piece table). Only the main story (ccpText) is kept.
-func wordBinaryText(cfb *cfbReader) (string, error) {
+func wordBinaryText(cfb *cfbReader) (string, error) { return wordStoryText(cfb, false) }
+
+// wordStoryText extracts the main story, or with allStories every story
+// (footnotes, headers, comments, endnotes, text boxes) that follows it in
+// the CP space; fields can sit in any of them.
+func wordStoryText(cfb *cfbReader, allStories bool) (string, error) {
 	wd, err := cfb.readStream("WordDocument")
 	if err != nil {
 		return "", err
@@ -44,6 +49,14 @@ func wordBinaryText(cfb *cfbReader) (string, error) {
 		return "", err
 	}
 	ccpText := int64(binary.LittleEndian.Uint32(wd[0x4C:]))
+	if allStories {
+		// ccpFtn, ccpHdd, ccpMcr, ccpAtn, ccpEdn, ccpTxbx, ccpHdrTxbx
+		for off := 0x50; off <= 0x68; off += 4 {
+			if n := int64(binary.LittleEndian.Uint32(wd[off:])); n > 0 && n < maxDocText {
+				ccpText += n
+			}
+		}
+	}
 	fcClx := int64(binary.LittleEndian.Uint32(wd[0x1A2:]))
 	lcbClx := int64(binary.LittleEndian.Uint32(wd[0x1A6:]))
 	if fcClx < 0 || lcbClx <= 0 || fcClx+lcbClx > int64(len(tbl)) {

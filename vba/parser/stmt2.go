@@ -108,7 +108,20 @@ func (p *parser) parseTypeName() string {
 		return "New " + n
 	}
 	p.advance()
-	return t.Text
+	name := t.Text
+	// Qualified type (Office.CommandBar) and array return type (As Byte()).
+	for p.cur().Kind == lexer.Op && p.cur().Text == "." {
+		p.advance()
+		if p.cur().Kind == lexer.Ident {
+			name += "." + p.advance().Text
+		}
+	}
+	if p.cur().Kind == lexer.Op && p.cur().Text == "(" && p.peek(1).Kind == lexer.Op && p.peek(1).Text == ")" {
+		p.advance()
+		p.advance()
+		name += "()"
+	}
+	return name
 }
 
 func (p *parser) parseParams() []*ast.Param {

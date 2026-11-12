@@ -5,6 +5,41 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-12
+
+Document-variable droppers and the Word 97-2003 static checks.
+
+### Downloads
+
+| Platform | Archive |
+|---|---|
+| Windows x64 / ARM64 | `maldocTrace_0.3.1_windows_amd64.zip`, `maldocTrace_0.3.1_windows_arm64.zip` |
+| Linux x64 / ARM64 | `maldocTrace_0.3.1_linux_amd64.tar.gz`, `maldocTrace_0.3.1_linux_arm64.tar.gz` |
+| macOS Intel / Apple Silicon | `maldocTrace_0.3.1_darwin_amd64.tar.gz`, `maldocTrace_0.3.1_darwin_arm64.tar.gz` |
+
+You can verify downloads against `checksums.txt` (SHA-256). The binaries are static and have no dependencies. The macOS builds are not notarized, so remove the quarantine flag before running them: `xattr -d com.apple.quarantine maldocTrace`.
+
+### Added
+
+- Word 97-2003 (`.doc`) documents get the static checks that `.docx` and RTF already had:
+  - field codes (DDE/DDEAUTO, `INCLUDEPICTURE`, `INCLUDETEXT`, `LINK`...) in every story, not only the main text: headers, footnotes, comments, endnotes and text boxes;
+  - the attached template (`SttbfAssoc` in the table stream), reported as remote template injection when it is a URL or UNC path;
+  - embedded and linked OLE objects in the `ObjectPool` storage: class and ProgID (`\x01CompObj`), OLE Packages (`\x01Ole10Native`: label, original path, temp path, size), URL and file monikers of linked objects (`\x01Ole`, CVE-2017-0199 pattern) and the Equation Editor checks used for RTF (`Equation Native`).
+- When nothing is found, the text report lists what was checked; the JSON report carries the same list in `checks` (schema 1.5.0).
+- Document variables of Word 97-2003 files (`StwUser` in the table stream) are read, so `ThisDocument.Variables("x").Value` returns what droppers stored there.
+- `MSXML2.DOMDocument` / `Microsoft.XMLDOM` elements with `DataType` `bin.base64` or `bin.hex`: `NodeTypedValue` decodes `Text` (and encodes in the other direction).
+- `ADODB.Stream` is modelled as a positioned stream: `Type`, `Charset` (utf-8 and unicode with their BOM, us-ascii...), `Position`, `Read`, `ReadText`, `SetEOS`. The usual "string to bytes" and "bytes to string" conversions now work.
+- Commands that JScript or VBScript code runs through a `WScript.Shell` handed to `ScriptControl.AddObject` (`oShell.run("...")`) are recovered as commands.
+- Files the macro writes are identified: JAR files (main class, class and package count), ZIP and OOXML archives, PE files and shellcode.
+
+### Fixed
+
+- `.Member` inside `With` blocks was not parsed, so `With CreateObject(...)` blocks lost every property assignment and method call.
+- `ReDim` and `ReDim Preserve` were ignored, so arrays sized at run time stayed empty.
+- Function return types such as `As Byte()` broke the parsing of the procedure.
+- `ThisDocument.<member>` resolved to the code module only; document members such as `Variables` are now reached when the module defines no procedure of that name.
+- Text output lists at most 12 document properties and variables (the rest are in the JSON).
+
 ## [0.3.0] - 2026-11-12
 
 Encrypted Office documents, shellcode and PE profiling.
@@ -151,7 +186,8 @@ You can verify downloads against `checksums.txt` (SHA-256). The binaries are sta
   - `--dump-payloads DIR` to write decoded payloads and dropped files with neutral extensions and a `manifest.json`.
 - **Robustness**: each pipeline stage recovers from panics and records them as diagnostics. The VBA pipeline and container parsers are fuzzed.
 
-[Unreleased]: https://github.com/debugactiveprocess/MaldocTrace/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/debugactiveprocess/MaldocTrace/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/debugactiveprocess/MaldocTrace/releases/tag/v0.3.1
 [0.3.0]: https://github.com/debugactiveprocess/MaldocTrace/releases/tag/v0.3.0
 [0.2.1]: https://github.com/debugactiveprocess/MaldocTrace/releases/tag/v0.2.1
 [0.2.0]: https://github.com/debugactiveprocess/MaldocTrace/releases/tag/v0.2.0

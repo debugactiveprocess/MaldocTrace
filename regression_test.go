@@ -305,6 +305,20 @@ func TestSampleRegressions(t *testing.T) {
 			}
 		})
 	}
+	for _, c := range []struct{ file, jar string }{
+		{"8f16fff004d1af4665bfb42bd08a93b204f19dca5adcde751d9dc7541e38aac9.doc", "mqAscJTnJS.jar"},
+		{"0bd775f01fd87ec79164a6665f01a7f63b76359c09023326e7bc74cf48f23741.doc", "tqedfVhFsV.jar"},
+	} {
+		t.Run("document variable dropper "+c.jar, func(t *testing.T) {
+			r := AnalyzeFromBytes(nil, readSample(t, c.file), c.file, Options{})
+			if r.Status != "complete" || len(r.Commands) != 1 || r.Commands[0].CommandLine != `java -jar "%appdata%\`+c.jar+`"` {
+				t.Fatalf("status=%s commands=%q", r.Status, commandLines(r))
+			}
+			if len(r.Artifacts) != 1 || r.Artifacts[0].FileType != "Java archive (JAR)" || !strings.Contains(strings.Join(r.Artifacts[0].Facts, ";"), "Main-Class=") {
+				t.Fatalf("artifacts = %+v", r.Artifacts)
+			}
+		})
+	}
 	t.Run("cfb with unused directory entries", func(t *testing.T) {
 		r := AnalyzeFromBytes(nil, readSample(t, "Relatorio_Financeiro_Q4_2026.docm"), "docm", Options{})
 		if r.Macros != "present" || len(r.Modules) != 2 {

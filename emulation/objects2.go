@@ -1,9 +1,11 @@
 package emulation
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"strings"
+	"unicode/utf16"
 
 	"github.com/debugactiveprocess/MaldocTrace/vba/runtime"
 )
@@ -56,31 +58,171 @@ func (o *textStream) Call(name string, args []runtime.Value) runtime.Value {
 	return runtime.VUnknown
 }
 
-// adodbStream simulates ADODB.Stream and captures written data so SaveToFile
-// reports a reconstructed artifact hash.
+// adodbStream simulates ADODB.Stream: a byte buffer with a position, a
+// text/binary mode and a charset. Written data is captured so SaveToFile
+// reports a reconstructed artifact. When no Charset is set, text is stored
+// as UTF-8 without a BOM (the legacy behaviour scans rely on); an explicit
+// Charset gets the real encoding, including the BOM ADODB writes at the
+// start of a utf-8 or unicode stream.
 type adodbStream struct {
-	h   *Host
-	buf *buffer
+	h          *Host
+	buf        *buffer
+	pos        int
+	binary     bool
+	charset    string
+	charsetSet bool
 }
 
 func (o *adodbStream) TypeName() string { return "ADODB.Stream" }
 func (o *adodbStream) Get(name string) runtime.Value {
 	switch strings.ToLower(name) {
-	case "position", "size":
+	case "position":
+		return runtime.VInt(int64(o.pos))
+	case "size":
 		return runtime.VInt(int64(o.buf.len()))
+	case "eos":
+		return runtime.VBool(o.pos >= o.buf.len())
+	case "type":
+		if o.binary {
+			return runtime.VInt(1)
+		}
+		return runtime.VInt(2)
+	case "charset":
+		return runtime.VString(o.cs())
+	case "read", "readtext":
+		// Methods called without parentheses (x = .Read) arrive as
+		// property reads.
+		return o.Call(name, nil)
 	}
 	return runtime.VEmpty
 }
-func (o *adodbStream) Set(name string, v runtime.Value) {}
+
+func (o *adodbStream) cs() string {
+	if o.charset == "" {
+		return "Unicode"
+	}
+	return o.charset
+}
+
+func (o *adodbStream) Set(name string, v runtime.Value) {
+	switch strings.ToLower(name) {
+	case "type":
+		n, _ := v.CoerceInt()
+		o.binary = n == 1
+	case "charset":
+		o.charset, o.charsetSet = v.CoerceString(), true
+	case "position":
+		n, _ := v.CoerceInt()
+		if n >= 0 && int(n) <= o.buf.len() {
+			o.pos = int(n)
+		}
+	}
+}
+
+// encodeText converts text to the stream's charset.
+func (o *adodbStream) encodeText(s string) []byte {
+	if !o.charsetSet {
+		return []byte(s)
+	}
+	var out []byte
+	switch strings.ToLower(o.charset) {
+	case "utf-8", "utf8":
+		if o.pos == 0 {
+			out = append(out, 0xEF, 0xBB, 0xBF)
+		}
+		return append(out, s...)
+	case "unicode", "utf-16", "utf-16le":
+		if o.pos == 0 {
+			out = append(out, 0xFF, 0xFE)
+		}
+		for _, u := range utf16.Encode([]rune(s)) {
+			out = append(out, byte(u), byte(u>>8))
+		}
+		return out
+	default: // us-ascii, windows-1252, iso-8859-1 ...
+		for _, r := range s {
+			if r > 0xFF {
+				r = '?'
+			}
+			out = append(out, byte(r))
+		}
+		return out
+	}
+}
+
+// decodeText converts stream bytes to text, skipping a leading BOM.
+func (o *adodbStream) decodeText(b []byte) string {
+	if !o.charsetSet {
+		return string(b)
+	}
+	switch strings.ToLower(o.charset) {
+	case "utf-8", "utf8":
+		return string(bytes.TrimPrefix(b, []byte{0xEF, 0xBB, 0xBF}))
+	case "unicode", "utf-16", "utf-16le":
+		b = bytes.TrimPrefix(b, []byte{0xFF, 0xFE})
+		u := make([]uint16, len(b)/2)
+		for i := range u {
+			u[i] = uint16(b[2*i]) | uint16(b[2*i+1])<<8
+		}
+		return string(utf16.Decode(u))
+	case "us-ascii", "ascii":
+		r := make([]rune, len(b))
+		for i, c := range b {
+			if c > 0x7F {
+				c = '?'
+			}
+			r[i] = rune(c)
+		}
+		return string(r)
+	default:
+		r := make([]rune, len(b))
+		for i, c := range b {
+			r[i] = rune(c)
+		}
+		return string(r)
+	}
+}
+
+func (o *adodbStream) write(p []byte) {
+	o.pos = o.buf.writeAt(o.pos, p)
+}
+
+// readCount returns the bytes from the position: n < 0 means all.
+func (o *adodbStream) readCount(args []runtime.Value) []byte {
+	n := -1
+	if len(args) > 0 {
+		if v, ok := args[0].CoerceInt(); ok && v >= 0 {
+			n = int(v)
+		}
+	}
+	rest := o.buf.b[min(o.pos, o.buf.len()):]
+	if n >= 0 && n < len(rest) {
+		rest = rest[:n]
+	}
+	o.pos += len(rest)
+	return rest
+}
+
 func (o *adodbStream) Call(name string, args []runtime.Value) runtime.Value {
 	switch strings.ToLower(name) {
-	case "open", "close":
+	case "open", "close", "flush":
 		return runtime.VEmpty
 	case "writetext":
-		o.buf.writeString(argString(args, 0))
+		s := argString(args, 0)
+		if n, ok := argInt(args, 1); ok && n == 1 { // adWriteLine
+			s += string([]byte{'\r', '\n'})
+		}
+		o.write(o.encodeText(s))
 		return runtime.VEmpty
 	case "write":
-		o.buf.writeBytes(argBytes(args, 0))
+		o.write(argBytes(args, 0))
+		return runtime.VEmpty
+	case "read":
+		return ByteArray(o.readCount(args))
+	case "readtext":
+		return runtime.VString(o.decodeText(o.readCount(args)))
+	case "seteos":
+		o.buf.b = o.buf.b[:min(o.pos, o.buf.len())]
 		return runtime.VEmpty
 	case "savetofile":
 		p := argString(args, 0)
@@ -88,11 +230,20 @@ func (o *adodbStream) Call(name string, args []runtime.Value) runtime.Value {
 			"content_sha256": o.buf.sha256(), "content_hex": o.buf.hex(),
 		})
 		return runtime.VEmpty
-	case "readtext":
-		o.h.recStr("file_read", "", nil)
-		return runtime.VString("")
+	case "loadfromfile":
+		o.h.recStr("file_read", argString(args, 0), nil)
+		return runtime.VEmpty
 	}
 	return runtime.VUnknown
+}
+
+// ByteArray returns a VBA Byte array value.
+func ByteArray(b []byte) runtime.Value {
+	arr := make([]runtime.Value, len(b))
+	for i, c := range b {
+		arr[i] = runtime.VInt(int64(c))
+	}
+	return runtime.VArray(arr)
 }
 
 func argString(args []runtime.Value, i int) string {
@@ -123,7 +274,20 @@ type buffer struct{ b []byte }
 func newBuf() *buffer                  { return &buffer{} }
 func (b *buffer) writeString(s string) { b.b = append(b.b, []byte(s)...) }
 func (b *buffer) writeBytes(p []byte)  { b.b = append(b.b, p...) }
-func (b *buffer) len() int             { return len(b.b) }
+
+// writeAt overwrites from pos, growing the buffer, and returns the new pos.
+func (b *buffer) writeAt(pos int, p []byte) int {
+	if pos > len(b.b) {
+		pos = len(b.b)
+	}
+	end := pos + len(p)
+	if end > len(b.b) {
+		b.b = append(b.b, make([]byte, end-len(b.b))...)
+	}
+	copy(b.b[pos:], p)
+	return end
+}
+func (b *buffer) len() int { return len(b.b) }
 func (b *buffer) sha256() string {
 	h := sha256.Sum256(b.b)
 	return hex.EncodeToString(h[:])

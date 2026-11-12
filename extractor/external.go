@@ -53,6 +53,8 @@ func zipPart(f *zip.File, lim *Limits) ([]byte, error) {
 // scanOOXML inspects relationship parts, field codes, external links,
 // worksheets/macro sheets and document properties of an OOXML package.
 func scanOOXML(data []byte, lim *Limits, res *Result) {
+	res.addCheck("OOXML relationships (templates, linked objects, frames)")
+	res.addCheck("Word field codes and Excel external/DDE links")
 	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
 		return
@@ -387,6 +389,7 @@ var (
 // scanRTF inspects an RTF document for remote templates, embedded or linked
 // OLE objects and field instructions.
 func scanRTF(data []byte, res *Result) {
+	res.addCheck(`RTF templates, objects (\objdata, Equation Editor) and fields`)
 	s := string(data)
 	for _, m := range rtfTemplate.FindAllStringSubmatch(s, 64) {
 		res.addExternal(ExternalRef{Kind: "template_injection", Severity: "high", Location: "rtf", Target: rtfText(m[1]),

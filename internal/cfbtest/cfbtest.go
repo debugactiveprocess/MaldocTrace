@@ -1,11 +1,12 @@
-// Package cfbtest builds minimal OLE compound files for tests. It writes
-// flat containers (streams directly under the root, no storages) with
-// 512-byte sectors; streams are padded to the mini-stream cutoff so every
-// stream lives in the regular FAT.
+// Package cfbtest builds minimal OLE compound files for tests. Stream names
+// may contain "/" to place them in storages ("ObjectPool/_1/\x01Ole").
+// Sectors are 512 bytes; streams are padded to the mini-stream cutoff so
+// every stream lives in the regular FAT.
 package cfbtest
 
 import (
 	"encoding/binary"
+	"strings"
 	"unicode/utf16"
 )
 
@@ -47,18 +48,62 @@ func Build(streams ...Stream) []byte {
 		pl = append(pl, placed{start: next, sectors: n, size: len(data)})
 		next += n
 	}
-	// Directory: root + one entry per stream, 4 entries per sector.
-	entries := 1 + len(streams)
+	// Directory: root, one entry per storage named in a stream path
+	// ("Storage/Sub/Stream") and one per stream, 4 entries per sector.
+	// Siblings are chained through their right links (a valid, if
+	// unbalanced, tree).
+	type node struct {
+		name   string
+		typ    byte
+		stream int
+		kids   []int
+	}
+	nodes := []*node{{name: "Root Entry", typ: 5, stream: -1}}
+	storages := map[string]int{"": 0}
+	for i, s := range streams {
+		parts := strings.Split(s.Name, "/")
+		parent, prefix := 0, ""
+		for _, p := range parts[:len(parts)-1] {
+			prefix += "/" + p
+			id, ok := storages[prefix]
+			if !ok {
+				id = len(nodes)
+				nodes = append(nodes, &node{name: p, typ: 1, stream: -1})
+				nodes[parent].kids = append(nodes[parent].kids, id)
+				storages[prefix] = id
+			}
+			parent = id
+		}
+		id := len(nodes)
+		nodes = append(nodes, &node{name: parts[len(parts)-1], typ: 2, stream: i})
+		nodes[parent].kids = append(nodes[parent].kids, id)
+	}
+	right := make([]int32, len(nodes))
+	for i := range right {
+		right[i] = -1
+	}
+	for _, n := range nodes {
+		for k := 0; k+1 < len(n.kids); k++ {
+			right[n.kids[k]] = int32(n.kids[k+1])
+		}
+	}
+	entries := len(nodes)
 	dirSectors := (entries + 3) / 4
 	dirStart := next
 	dir := make([]byte, dirSectors*sector)
-	writeEntry(dir[0:], "Root Entry", 5, -1, -1, int32(boolInt(len(streams) > 0)), endChain, 0)
-	for i, s := range streams {
-		right := int32(i + 2)
-		if i == len(streams)-1 {
-			right = -1
+	for i, n := range nodes {
+		child := int32(-1)
+		if len(n.kids) > 0 {
+			child = int32(n.kids[0])
 		}
-		writeEntry(dir[(i+1)*128:], s.Name, 2, -1, right, -1, uint32(pl[i].start), uint64(pl[i].size))
+		start, size := uint32(endChain), uint64(0)
+		if n.typ == 1 {
+			start = 0
+		}
+		if n.stream >= 0 {
+			start, size = uint32(pl[n.stream].start), uint64(pl[n.stream].size)
+		}
+		writeEntry(dir[i*128:], n.name, n.typ, -1, right[i], child, start, size)
 	}
 	for i := entries; i < dirSectors*4; i++ {
 		writeEntry(dir[i*128:], "", 0, -1, -1, -1, 0, 0)

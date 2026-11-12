@@ -221,6 +221,11 @@ func recoverAPIBuffer(r *report.Report, e report.Event, src report.Source, event
 	if api == "" {
 		api = e.Extra["name"]
 	}
+	if len(raw) == 0 {
+		r.Diagnostics = append(r.Diagnostics, report.Diagnostic{Severity: "info", Stage: "payload",
+			Message: "buffer passed to " + api + " is empty or could not be built", EvidenceIDs: []string{eventID}})
+		return
+	}
 	shown, _ := payload.DisplayBytes(raw)
 	id := fmt.Sprintf("command-%d", len(r.Commands)+1)
 	r.Commands = append(r.Commands, report.Command{
@@ -329,6 +334,7 @@ var reVBAString = regexp.MustCompile(`"((?:[^"]|"")*)"`)
 
 func finalizeReport(r *report.Report) {
 	recoverCommands(r)
+	profileArtifacts(r)
 	r.IOCs = dedupeIOCs(r.IOCs)
 	for i := range r.IOCs {
 		r.IOCs[i].ID = fmt.Sprintf("indicator-%d", i+1)

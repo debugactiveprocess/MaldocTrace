@@ -57,6 +57,10 @@ func (p *parser) parseDim() ast.Stmt {
 	case "static":
 		d.Static = true
 	}
+	if d.ReDim && isWord(p.cur(), "Preserve") {
+		p.advance()
+		d.Preserve = true
+	}
 	if p.cur().Kind == lexer.Ident {
 		d.Name = p.advance().Text
 	}

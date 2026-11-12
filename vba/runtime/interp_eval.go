@@ -29,6 +29,11 @@ func (rt *Interp) eval(e ast.Expr) Value {
 		return VNothing
 	case *ast.EmptyLit:
 		return VEmpty
+	case *ast.WithObj:
+		if n := len(rt.withStack); n > 0 {
+			return rt.withStack[n-1]
+		}
+		return NewUnknown("member access outside a With block")
 	case *ast.Unary:
 		return rt.evalUnary(x)
 	case *ast.Binary:
@@ -145,6 +150,14 @@ func (rt *Interp) evalUnary(u *ast.Unary) Value {
 func (rt *Interp) assign(lhs ast.Expr, v Value) {
 	switch l := lhs.(type) {
 	case *ast.Ident:
+		if v.Kind == KindArray {
+			// Arrays assigned to a variable (x = Split(...), buf =
+			// .NodeTypedValue) become element-assignable: the variable
+			// and the array store share one slice.
+			elems := append([]Value(nil), v.Arr...)
+			rt.arrays[strings.ToLower(l.Name)] = &arrayData{elems: elems}
+			v = VArray(elems)
+		}
 		rt.setVar(l.Name, v)
 	case *ast.Call:
 		if id, ok := l.Fn.(*ast.Ident); ok && len(l.Args) == 1 {

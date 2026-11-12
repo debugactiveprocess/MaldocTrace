@@ -118,6 +118,8 @@ func (h *Host) CreateObject(progID string) runtime.Value {
 		return runtime.VObject(&httpReq{h: h})
 	case "wscript.network":
 		return runtime.VObject(&wshNetwork{h: h})
+	case "msxml2.domdocument", "msxml2.domdocument.3.0", "msxml2.domdocument.6.0", "microsoft.xmldom", "msxml.domdocument":
+		return runtime.VObject(&xmlDOM{h: h})
 	case "msscriptcontrol.scriptcontrol", "msscriptcontrol.scriptcontrol.1", "scriptcontrol":
 		return runtime.VObject(&scriptControl{h: h})
 	}
@@ -135,7 +137,15 @@ func (h *Host) GetObject(name string) runtime.Value {
 		return runtime.VObject(&wmiObject{h: h, process: strings.HasSuffix(low, "win32_process")})
 	}
 	if h.modules[low] {
-		return runtime.VObject(&moduleObject{name: name, d: h.dispatcher, controls: h.formControls[low]})
+		m := &moduleObject{name: name, d: h.dispatcher, controls: h.formControls[low]}
+		switch low {
+		case "thisdocument", "thisworkbook":
+			// The document module is also the Document/Workbook object:
+			// ThisDocument.Variables(...) reaches the document when the
+			// module defines no procedure of that name.
+			m.doc = &documentObject{h: h, name: name}
+		}
+		return runtime.VObject(m)
 	}
 	if n, ok := wordConstants[low]; ok {
 		return runtime.VInt(n)
@@ -166,6 +176,13 @@ type moduleObject struct {
 	name     string
 	d        Dispatcher
 	prop     map[string]runtime.Value
+	doc      *documentObject
+}
+
+// procChecker is implemented by dispatchers that can tell whether a module
+// defines a procedure.
+type procChecker interface {
+	HasProc(module, proc string) bool
 }
 
 func (m *moduleObject) TypeName() string { return m.name }
@@ -175,6 +192,11 @@ func (m *moduleObject) Get(name string) runtime.Value {
 	}
 	if m.prop != nil {
 		if v, ok := m.prop[name]; ok {
+			return v
+		}
+	}
+	if m.doc != nil && !m.hasProc(name) {
+		if v := m.doc.Get(name); v.Kind != runtime.KindEmpty {
 			return v
 		}
 	}
@@ -190,7 +212,15 @@ func (m *moduleObject) Set(name string, v runtime.Value) {
 	}
 	m.prop[name] = v
 }
+func (m *moduleObject) hasProc(name string) bool {
+	pc, ok := m.d.(procChecker)
+	return ok && pc.HasProc(m.name, name)
+}
+
 func (m *moduleObject) Call(name string, args []runtime.Value) runtime.Value {
+	if m.doc != nil && !m.hasProc(name) {
+		return m.doc.Call(name, args)
+	}
 	if m.d != nil {
 		return m.d.CallProc(m.name, name, args)
 	}

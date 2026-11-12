@@ -21,20 +21,23 @@ Documents with no macros at all are covered too. Remote template injection, DDE 
   - simulated `EXEC`, `CALL`, `REGISTER` and aliases (`URLDownloadToFileA`, `ShellExecuteA`, `WinExec`, `CreateProcessA`) and `FOPEN`/`FWRITE`. Anti-sandbox probes (`GET.WORKSPACE`, `GET.WINDOW`, `GET.CELL`) get plausible answers, flagged as simulated;
   - the formulas written at run time are listed as the deobfuscated macro.
 - **Static findings** (no emulation needed):
-  - remote template injection (`attachedTemplate`, RTF `\*\template`);
+  - remote template injection (`attachedTemplate`, RTF `\*\template`, the attached template of Word 97-2003 `.doc` files);
   - external OLE objects, including MHTML (CVE-2021-40444) and `ms-msdt` (Follina) monikers;
-  - DDE/DDEAUTO fields (including `QUOTE`-encoded ones) and Excel DDE formulas and links;
+  - DDE/DDEAUTO, `INCLUDEPICTURE`, `INCLUDETEXT` and `LINK` fields (including `QUOTE`-encoded ones) in `.docx`, RTF and every story of `.doc` files (body, headers, footnotes, comments, text boxes), and Excel DDE formulas and links;
+  - embedded and linked OLE objects of `.doc` files (`ObjectPool`): class and ProgID, OLE Packages (label, original and temp path), URL and file monikers of linked objects (CVE-2017-0199 pattern) and Equation Editor exploits;
   - RTF embedded objects decoded the way Word reads them (obfuscated `\objdata`, corrupted OLE1 headers), with Equation Editor exploit detection: the MTEF FONT overflow (CVE-2017-11882 / CVE-2018-0802) and the MATRIX overflow (CVE-2018-0798), plus extraction of the bytes that follow;
   - hyperlinks on pictures and cells, and QR-code lures;
+  - when nothing is found, the text report lists what was checked (also in the JSON `checks` field);
   - **VBA stomping**: string literals compiled into the p-code but missing from the source mean the source shown is not the code Office runs. Those literals are reported and scanned for indicators.
-- **Payload hiding places**: cell values (`Sheets("x").Range("A1")`, `Cells(r, c)`), document properties (`BuiltInDocumentProperties("Comments")`, custom properties), document variables (`ActiveDocument.Variables`) and UserForm controls (`TextBox.Text`, `Label.Caption`) are all available to the emulated macro.
+- **Payload hiding places**: cell values (`Sheets("x").Range("A1")`, `Cells(r, c)`), document properties (`BuiltInDocumentProperties("Comments")`, custom properties), document variables (`ActiveDocument.Variables`, from `.docx` settings and the `StwUser` table of `.doc` files) and UserForm controls (`TextBox.Text`, `Label.Caption`) are all available to the emulated macro.
 - **Document body text**: extracted from Word 97-2003 (piece table) and `.docx`. Droppers often hide their payload in the document body and read it back through `ActiveDocument.Paragraphs(n).Range.Text`.
 - **VBA interpreter**: a lexer, parser and bounded interpreter covering the subset of VBA that malware relies on: procedures, `ByRef` parameters, named arguments, conditional compilation, loops, arrays and the string built-ins.
 - **Static deobfuscation**: constant folding of `Chr`/`StrReverse`/`Replace`/concatenation. Each value records how it was rebuilt (`concatenation+Chr`, `StrReverse`, ...).
 - **Simulated environment**:
   - processes: `WScript.Shell`, `Shell`, WMI `Win32_Process.Create` (both `GetObject` and `CreateObject("winmgmts:...")`)
-  - files and network: `FileSystemObject`, `ADODB.Stream`, `XMLHTTP`/`WinHttp`
-  - script engines: `MSScriptControl.ScriptControl`
+  - files and network: `FileSystemObject`, `ADODB.Stream` (position, text/binary mode and charsets), `XMLHTTP`/`WinHttp`
+  - `MSXML2.DOMDocument` elements, including the `bin.base64`/`bin.hex` decoding trick
+  - script engines: `MSScriptControl.ScriptControl`; commands that the script runs through a `WScript.Shell` exposed with `AddObject` are recovered
   - Word's document model: `Paragraphs`, `Range`, `Delete`, `SaveAs2`
   - Excel's object model (`Sheets`, `Worksheets`, `Range`, `Cells`, `Offset`), shared with the XLM engine, and `ExecuteExcel4Macro`/`Application.Run` into macro sheets
   - declared Windows APIs, with simulated `VarPtr` pointers
@@ -66,7 +69,7 @@ Requires Go 1.23+. The only dependency is `golang.org/x/text`.
 Install a tagged release:
 
 ```bash
-go install github.com/debugactiveprocess/MaldocTrace/cmd/maldoctrace@v0.3.0
+go install github.com/debugactiveprocess/MaldocTrace/cmd/maldoctrace@v0.3.1
 ```
 
 Or build from a release tarball or a clone:
@@ -96,7 +99,7 @@ maldocTrace version
 | Option | Description |
 |---|---|
 | `--format text` | Human-readable report (default). |
-| `--format json` | Full, versioned JSON report (schema `1.4.0`). It always includes indicators, diagnostics, decoded strings and full payload content. |
+| `--format json` | Full, versioned JSON report (schema `1.5.0`). It always includes indicators, diagnostics, decoded strings and full payload content. |
 | `--format jsonl` | One JSON report per line, for batch analysis with `--recursive`. |
 | `--show-strings` | Text format only. Lists the reconstructed strings, deduplicated, with every module/procedure/line occurrence and the reconstruction method. |
 | `--dump-payloads DIR` | Writes decoded payloads and files dropped by the macro to `DIR/<input-sha256>/`, with a `manifest.json`. Files get neutral extensions (`.bin`, `.txt`), so nothing can run on a double-click. Existing files are never overwritten. |

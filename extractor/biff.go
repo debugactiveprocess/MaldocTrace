@@ -71,6 +71,7 @@ type biffBook struct {
 // shared strings, cell values, formulas (decompiled from parsed tokens to
 // A1 text) and defined names. Macro sheets (Excel 4.0) are flagged as such.
 func extractBIFF(cfb *cfbReader, stream string, lim *Limits, res *Result) {
+	res.addCheck("Excel BIFF8 sheets, Excel 4.0 macros and DDE formulas")
 	data, err := cfb.readStream(stream)
 	if err != nil {
 		res.addDiag("warning", "biff", err.Error())
