@@ -256,14 +256,19 @@ func TestSampleRegressions(t *testing.T) {
 	t.Run("powershell concat", func(t *testing.T) {
 		r := AnalyzeFromBytes(nil, readSample(t, "PO-465514-180820.doc.bin"), "po", Options{})
 		urls := iocValues(r, "url")
+		byHash := map[string]report.IOC{}
+		for v, i := range urls {
+			byHash[sha256Hex(v)] = i
+		}
+		// The four URLs of the decoded PowerShell, by SHA-256.
 		for _, want := range []string{
-			"http://oubaina.com/wp-includes/lqkz_nvr_1avf4/",
-			"https://www.msbc.kz/data/k527_5_cbdvv5bi19/",
-			"http://okcupidating.com/im/fsq_esj_qgx060p/",
-			"http://bike-nomad.com/cgi-bin/7n_0x0_62mnzyh9q/",
+			"6e9435f40cc676cbb99501c2785858bd8618669547bdbdb965ae9aa7e87909d0",
+			"66c667e8abddb67d17a434d7af34a6b959b0912f519bf659f976c7db98b8c10f",
+			"bc07d08a53a26f3a665ff1ae49018e6f24f081cfa5f83b5c581223df761f15f2",
+			"07fe064e05d0b4882c79481fe122f6d00d36cf5001b8e73debd92abe044866e6",
 		} {
-			if i, ok := urls[want]; !ok || !hasEvidence(i, "payload-1") {
-				t.Errorf("missing %s", want)
+			if i, ok := byHash[want]; !ok || !hasEvidence(i, "payload-1") {
+				t.Errorf("missing URL with sha256 %s", want)
 			}
 		}
 		if _, ok := urls["http://o"]; ok {
@@ -278,7 +283,7 @@ func TestSampleRegressions(t *testing.T) {
 		if len(r.Commands) != 0 || len(r.ScriptCalls) != 1 || r.ScriptCalls[0].Function != "hexer" || r.ScriptCalls[0].DefinedIn == "" {
 			t.Fatalf("commands=%+v calls=%+v", r.Commands, r.ScriptCalls)
 		}
-		if _, ok := iocValues(r, "url")["http://northsidecollisiona2.com/load5.exe"]; !ok {
+		if !hasIOCHash(r, "url", "cf470c7dfddc1c8f6b277169fcd6807193d0f60feacb2506e79d522ee596248e") {
 			t.Fatal("url missing")
 		}
 		for _, i := range r.Indicators {
@@ -448,7 +453,7 @@ func TestStaticSampleRegressions(t *testing.T) {
 			}
 		}},
 		{"NMU Advanced Legal.xls.bin", []string{"shape_hyperlink"}, func(t *testing.T, r *report.Report) {
-			if len(r.StaticFindings) != 1 || r.StaticFindings[0].Target != "http://caribou-turtle-lgpz.squarespace.com/" {
+			if len(r.StaticFindings) != 1 || sha256Hex(r.StaticFindings[0].Target) != "3d1ff1373d0bb91103a25f65cc68c5d64b37860e6b05567c963bd7a2b640ce72" {
 				t.Errorf("findings = %+v", r.StaticFindings)
 			}
 		}},
