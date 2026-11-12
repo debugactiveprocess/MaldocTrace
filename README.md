@@ -63,14 +63,25 @@ Documents with no macros at all are covered too. Remote template injection, DDE 
 
 Prebuilt binaries for **Windows**, **Linux** and **macOS** (x64 and ARM64) are on the [Releases](https://github.com/debugactiveprocess/MaldocTrace/releases) page, along with SHA-256 checksums. Each release's notes come from [CHANGELOG.md](CHANGELOG.md).
 
+With a package manager:
+
+```bash
+# macOS / Linux (Homebrew)
+brew install debugactiveprocess/tap/maldoctrace
+
+# Windows (Scoop)
+scoop bucket add maldoctrace https://github.com/debugactiveprocess/scoop-bucket
+scoop install maldoctrace/maldoctrace
+```
+
 ## Build
 
-Requires Go 1.23+. The only dependency is `golang.org/x/text`.
+Requires Go 1.23+. Dependencies: `golang.org/x/text` and, for 7z archives, [`github.com/bodgit/sevenzip`](https://github.com/bodgit/sevenzip).
 
 Install a tagged release:
 
 ```bash
-go install github.com/debugactiveprocess/MaldocTrace/cmd/maldoctrace@v0.3.1
+go install github.com/debugactiveprocess/MaldocTrace/cmd/maldoctrace@v0.4.0
 ```
 
 Or build from a release tarball or a clone:
@@ -100,7 +111,7 @@ maldocTrace version
 | Option | Description |
 |---|---|
 | `--format text` | Human-readable report (default). |
-| `--format json` | Full, versioned JSON report (schema `1.5.0`). It always includes indicators, diagnostics, decoded strings and full payload content. |
+| `--format json` | Full, versioned JSON report (schema `1.6.0`). It always includes indicators, diagnostics, decoded strings and full payload content. |
 | `--format jsonl` | One JSON report per line, for batch analysis with `--recursive`. |
 | `--show-strings` | Text format only. Lists the reconstructed strings, deduplicated, with every module/procedure/line occurrence and the reconstruction method. |
 | `--dump-payloads DIR` | Writes decoded payloads and files dropped by the macro to `DIR/<input-sha256>/`, with a `manifest.json`. Files get neutral extensions (`.bin`, `.txt`), so nothing can run on a double-click. Existing files are never overwritten. |

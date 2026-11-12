@@ -5,6 +5,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-12
+
+Verdicts, embedded objects, archives, email, OneNote and more document formats.
+
+### Downloads
+
+| Platform | Archive |
+|---|---|
+| Windows x64 / ARM64 | `maldocTrace_0.4.0_windows_amd64.zip`, `maldocTrace_0.4.0_windows_arm64.zip` |
+| Linux x64 / ARM64 | `maldocTrace_0.4.0_linux_amd64.tar.gz`, `maldocTrace_0.4.0_linux_arm64.tar.gz` |
+| macOS Intel / Apple Silicon | `maldocTrace_0.4.0_darwin_amd64.tar.gz`, `maldocTrace_0.4.0_darwin_arm64.tar.gz` |
+
+You can verify downloads against `checksums.txt` (SHA-256). The binaries are static and have no dependencies. The macOS builds are not notarized, so remove the quarantine flag before running them: `xattr -d com.apple.quarantine maldocTrace`.
+
 ### Added
 
 - **Verdict and risk score**: every report carries `verdict` (`malicious`, `suspicious`, `clean` or `unknown`), `risk_score` (0-100) and `verdict_reasons`, derived from the evidence already collected: recovered commands, static findings by severity (a high-severity DDE field, remote template, linked object, Equation Editor exploit or `Auto_Open` macro sheet alone is malicious; QR-code and picture-hyperlink lures are suspicious), decoded payloads, executable files, auto-run macros, network indicators next to active content, Excel's default encryption password and the verdicts of embedded files. A partial analysis that found nothing is `unknown`, never `clean`. The text report starts with the verdict. Schema 1.6.0.
@@ -202,7 +216,8 @@ You can verify downloads against `checksums.txt` (SHA-256). The binaries are sta
   - `--dump-payloads DIR` to write decoded payloads and dropped files with neutral extensions and a `manifest.json`.
 - **Robustness**: each pipeline stage recovers from panics and records them as diagnostics. The VBA pipeline and container parsers are fuzzed.
 
-[Unreleased]: https://github.com/debugactiveprocess/MaldocTrace/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/debugactiveprocess/MaldocTrace/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/debugactiveprocess/MaldocTrace/releases/tag/v0.4.0
 [0.3.1]: https://github.com/debugactiveprocess/MaldocTrace/releases/tag/v0.3.1
 [0.3.0]: https://github.com/debugactiveprocess/MaldocTrace/releases/tag/v0.3.0
 [0.2.1]: https://github.com/debugactiveprocess/MaldocTrace/releases/tag/v0.2.1
