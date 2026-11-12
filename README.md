@@ -112,6 +112,10 @@ maldocTrace version
 
 Word also opens documents that are not `.doc` or `.docx` containers, and droppers use them because many scanners do not look inside: Word 2003 XML (`w:wordDocument`, with the VBA project as a base64 ActiveMime blob in `w:binData`), Flat OPC (`pkg:package`, every OOXML part inline) and MHT/MHTML web archives with an ActiveMime part. MaldocTrace decodes them in memory and analyses the VBA project, fields and templates they carry like any other document.
 
+### OneNote
+
+OneNote sections (`.one`) are a common dropper since Office blocked internet macros: a lure picture sits over an embedded HTA, batch file, script, shortcut or executable. MaldocTrace extracts every embedded file, classifies it by content, reports scripts (with the commands and indicators in them) and executables, and analyses embedded documents as children.
+
 ### Emails
 
 `.eml` and Outlook `.msg` files are analysed as containers: the report shows the sender, recipient, subject, date and attachment names, extracts URLs from the bodies as indicators, and analyses every attachment (documents, archives, scripts, attached messages) as a child report.

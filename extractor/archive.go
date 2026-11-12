@@ -48,12 +48,14 @@ type Archive struct {
 var sevenZipMagic = []byte{'7', 'z', 0xBC, 0xAF, 0x27, 0x1C}
 
 // DetectContainer classifies inputs that are not Office documents but carry
-// them: "zip" (a ZIP that is not an OOXML package), "7z", "eml" and "msg"
-// (Outlook). It returns "" for everything else.
+// them: "zip" (a ZIP that is not an OOXML package), "7z", "eml", "msg"
+// (Outlook) and "onenote". It returns "" for everything else.
 func DetectContainer(data []byte) string {
 	switch {
 	case bytes.HasPrefix(data, sevenZipMagic):
 		return "7z"
+	case IsOneNote(data):
+		return "onenote"
 	case Detect(data) == FormatOOXML && !isOOXMLPackage(data):
 		return "zip"
 	case Detect(data) == FormatCFB && isOutlookMessage(data):

@@ -1,12 +1,14 @@
 package maldoctrace
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"path"
 	"strings"
 
 	"github.com/debugactiveprocess/MaldocTrace/extractor"
+	"github.com/debugactiveprocess/MaldocTrace/payload"
 	"github.com/debugactiveprocess/MaldocTrace/report"
 )
 
@@ -19,6 +21,8 @@ func analyzeContainer(ctx context.Context, kind string, data []byte, r *report.R
 		analyzeArchive(ctx, kind, data, r, opts)
 	case "eml", "msg":
 		analyzeEmail(ctx, kind, data, r, opts)
+	case "onenote":
+		analyzeOneNote(ctx, data, r, opts)
 	default:
 		r.Status = "partial"
 		r.Macros = "unknown"
@@ -63,6 +67,53 @@ func analyzeEmail(ctx context.Context, kind string, data []byte, r *report.Repor
 	}
 	r.Checks = append(r.Checks, fmt.Sprintf("%s headers, %d body part(s) for indicators, %d attachment(s)", kind, len(e.Bodies), len(e.Attachments)))
 	processChildren(ctx, r, files, opts)
+}
+
+// oneNoteExt names an embedded file from its detected type.
+var oneNoteExt = []struct{ prefix, ext string }{
+	{"HTML application", ".hta"}, {"Windows Script File", ".wsf"}, {"PowerShell", ".ps1"}, {"batch", ".bat"},
+	{"VBScript", ".vbs"}, {"JScript", ".js"}, {"HTML", ".html"}, {"Windows shortcut", ".lnk"}, {"PE", ".exe"},
+	{"PDF", ".pdf"}, {"OLE/CFB", ".doc"}, {"OOXML", ".docx"}, {"ZIP", ".zip"}, {"Java archive", ".jar"}, {"RTF", ".rtf"},
+}
+
+// analyzeOneNote lists the files embedded in a OneNote section and analyses
+// them: scripts and executables are reported, documents analysed as children.
+func analyzeOneNote(ctx context.Context, data []byte, r *report.Report, opts Options) {
+	r.Macros = "absent"
+	files, diags := extractor.OneNoteFiles(data)
+	for _, d := range diags {
+		r.Diagnostics = append(r.Diagnostics, report.Diagnostic{Severity: d.Severity, Stage: d.Stage, Message: d.Message})
+	}
+	var children []childFile
+	for i, f := range files {
+		kind, _ := payload.ClassifyFile("", f.Data)
+		if kind == "" && isImage(f.Data) {
+			continue // the lure picture
+		}
+		name := fmt.Sprintf("embedded_%d", i+1)
+		for _, e := range oneNoteExt {
+			if strings.HasPrefix(kind, e.prefix) {
+				name += e.ext
+				break
+			}
+		}
+		children = append(children, childFile{source: "onenote_file", name: name, location: fmt.Sprintf("FileDataStoreObject at offset %d", f.Offset), data: f.Data})
+	}
+	if len(children) > 0 {
+		addFinding(r, report.StaticFinding{Kind: "onenote_embedded_file", Severity: "medium", Location: "OneNote section", Target: fmt.Sprintf("%d file(s)", len(children)),
+			Detail: "OneNote section embeds files that open on a double click (lure pictures are often placed over them)"})
+	}
+	r.Checks = append(r.Checks, fmt.Sprintf("OneNote FileDataStoreObject embedded files (%d, %d not pictures)", len(files), len(children)))
+	processChildren(ctx, r, children, opts)
+}
+
+func isImage(b []byte) bool {
+	for _, m := range [][]byte{{0x89, 'P', 'N', 'G'}, {0xFF, 0xD8, 0xFF}, []byte("GIF8"), []byte("BM"), {0x01, 0, 0, 0}, {0xD7, 0xCD, 0xC6, 0x9A}} {
+		if bytes.HasPrefix(b, m) {
+			return true
+		}
+	}
+	return false
 }
 
 func analyzeArchive(ctx context.Context, kind string, data []byte, r *report.Report, opts Options) {
