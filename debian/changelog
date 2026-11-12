@@ -1,3 +1,14 @@
+maldoctrace (0.4.0-0kali1) kali-dev; urgency=medium
+
+  * New upstream release: verdict and risk score (--fail-on), embedded OLE
+    objects (linked URL monikers, OLE packages, PDF), ZIP/7z archives with
+    passwords, .eml/.msg emails, Word 2003 XML, Flat OPC, MHT/ActiveMime,
+    OneNote, SYLK, IQY and DDE CSV. See CHANGELOG.md.
+  * Build-Depends: add golang-github-bodgit-sevenzip-dev and
+    golang-github-ulikunitz-xz-dev.
+
+ -- Ialle Teixeira <49375302+debugactiveprocess@users.noreply.github.com>  Thu, 12 Nov 2026 21:00:00 -0300
+
 maldoctrace (0.3.1-0kali1) kali-dev; urgency=medium
 
   * New upstream release: document-variable droppers (StwUser, ADODB.Stream,
