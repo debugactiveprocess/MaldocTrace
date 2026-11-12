@@ -108,6 +108,10 @@ maldocTrace version
 | `--input-format vba` | Analyze a plain-text VBA file. |
 | `--timeout`, `--max-steps` | Per-file time budget and interpreter step budget. |
 
+### Emails
+
+`.eml` and Outlook `.msg` files are analysed as containers: the report shows the sender, recipient, subject, date and attachment names, extracts URLs from the bodies as indicators, and analyses every attachment (documents, archives, scripts, attached messages) as a child report.
+
 ### Archives
 
 Samples usually travel in password-protected archives. `analyze` opens ZIP (ZipCrypto and WinZip AES) and 7z archives in memory, trying `infected`, `malware`, `virus` and any `--password`, and analyses every member. Nothing is written to disk. Office documents, emails and nested archives inside get their own report under `children`; scripts and executables are listed with their hash and type. Bomb protection: at most 512 members, 64 MiB per member, 512 MiB in total and a bounded compression ratio.

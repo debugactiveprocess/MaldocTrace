@@ -176,8 +176,23 @@ func RenderTextWith(r *Report, opt TextOptions) string {
 	}
 	var props []Property
 	for _, p := range r.Properties {
+		if p.Kind == "email" {
+			continue
+		}
 		if p.Kind != "builtin" || len(p.Value) >= 64 {
 			props = append(props, p)
+		}
+	}
+	var email []Property
+	for _, p := range r.Properties {
+		if p.Kind == "email" {
+			email = append(email, p)
+		}
+	}
+	if len(email) > 0 {
+		fmt.Fprintln(&b, "\n-- Email --")
+		for _, p := range email {
+			fmt.Fprintf(&b, "  %s: %s\n", p.Name, printable(p.Value, valuePreview, "document_properties"))
 		}
 	}
 	if len(props) > 0 {

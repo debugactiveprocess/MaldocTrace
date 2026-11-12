@@ -12,7 +12,8 @@ import (
 )
 
 const usageText = `MaldocTrace - defensive VBA macro analysis for Office documents
-(also reads ZIP/7z archives in memory, trying the passwords infected, malware, virus)
+(also reads ZIP/7z archives in memory, trying the passwords infected, malware, virus,
+and .eml/.msg emails, analysing every attachment)
 
 Usage:
   maldocTrace inspect <file>

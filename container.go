@@ -17,11 +17,52 @@ func analyzeContainer(ctx context.Context, kind string, data []byte, r *report.R
 	switch kind {
 	case "zip", "7z":
 		analyzeArchive(ctx, kind, data, r, opts)
+	case "eml", "msg":
+		analyzeEmail(ctx, kind, data, r, opts)
 	default:
 		r.Status = "partial"
 		r.Macros = "unknown"
 		r.Diagnostics = append(r.Diagnostics, report.Diagnostic{Severity: "warning", Stage: "container", Message: "unsupported container " + kind})
 	}
+}
+
+// analyzeEmail reports the sender, subject and attachments of a message,
+// takes indicators from its bodies and analyses every attachment.
+func analyzeEmail(ctx context.Context, kind string, data []byte, r *report.Report, opts Options) {
+	r.Macros = "absent"
+	var e *extractor.Email
+	var err error
+	if kind == "msg" {
+		e, err = extractor.ParseMSG(data, &opts.Limits)
+	} else {
+		e, err = extractor.ParseEML(data)
+	}
+	if err != nil {
+		r.Status = "partial"
+		r.Macros = "unknown"
+		r.Diagnostics = append(r.Diagnostics, report.Diagnostic{Severity: "warning", Stage: kind, Message: err.Error()})
+		return
+	}
+	for _, d := range e.Diagnostics {
+		r.Diagnostics = append(r.Diagnostics, report.Diagnostic{Severity: d.Severity, Stage: d.Stage, Message: d.Message})
+	}
+	r.LimitsHit = append(r.LimitsHit, e.LimitsHit...)
+	for _, h := range []struct{ name, value string }{{"From", e.From}, {"To", e.To}, {"Subject", e.Subject}, {"Date", e.Date}, {"Message-ID", e.MessageID}} {
+		if h.value != "" {
+			r.Properties = append(r.Properties, report.Property{Name: h.name, Value: h.value, Kind: "email", Source: kind + " header"})
+		}
+	}
+	var files []childFile
+	for i, a := range e.Attachments {
+		r.Properties = append(r.Properties, report.Property{Name: fmt.Sprintf("Attachment %d", i+1),
+			Value: fmt.Sprintf("%s (%s, %d bytes)", a.Name, firstOf(a.ContentType, "unknown type"), len(a.Data)), Kind: "email", Source: kind + " attachment"})
+		files = append(files, childFile{source: "email_attachment", name: a.Name, location: a.Name, class: a.ContentType, data: a.Data})
+	}
+	for i, b := range e.Bodies {
+		scanEvidence(r, b, "static", fmt.Sprintf("email-body-%d", i+1), report.Source{Module: kind + " body"})
+	}
+	r.Checks = append(r.Checks, fmt.Sprintf("%s headers, %d body part(s) for indicators, %d attachment(s)", kind, len(e.Bodies), len(e.Attachments)))
+	processChildren(ctx, r, files, opts)
 }
 
 func analyzeArchive(ctx context.Context, kind string, data []byte, r *report.Report, opts Options) {
