@@ -58,7 +58,7 @@ func DetectContainer(data []byte) string {
 		return "zip"
 	case Detect(data) == FormatCFB && isOutlookMessage(data):
 		return "msg"
-	case looksLikeEmail(data):
+	case looksLikeEmail(data) && Detect(data) != FormatMHT:
 		return "eml"
 	}
 	return ""

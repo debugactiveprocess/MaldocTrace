@@ -25,8 +25,16 @@ type Stream struct {
 	Data []byte
 }
 
-// Build returns a CFB file containing the given streams.
-func Build(streams ...Stream) []byte {
+// Build returns a CFB file containing the given streams. Streams shorter
+// than 4096 bytes are padded with NULs to that size.
+func Build(streams ...Stream) []byte { return build(false, streams) }
+
+// BuildExact is Build without padding: every stream keeps its exact size
+// (the mini-stream cutoff is set to 1 so they still live in the FAT). Use
+// it for streams whose readers do not tolerate trailing NULs.
+func BuildExact(streams ...Stream) []byte { return build(true, streams) }
+
+func build(exact bool, streams []Stream) []byte {
 	type placed struct {
 		start, sectors int
 		size           int
@@ -36,7 +44,7 @@ func Build(streams ...Stream) []byte {
 	next := 0
 	for _, s := range streams {
 		data := s.Data
-		if len(data) < miniLimit {
+		if len(data) < miniLimit && !exact {
 			pad := make([]byte, miniLimit)
 			copy(pad, data)
 			data = pad
@@ -152,7 +160,11 @@ func Build(streams ...Stream) []byte {
 	binary.LittleEndian.PutUint16(hdr[0x20:], 6)
 	binary.LittleEndian.PutUint32(hdr[0x2C:], uint32(fatSectors))
 	binary.LittleEndian.PutUint32(hdr[0x30:], uint32(dirStart))
-	binary.LittleEndian.PutUint32(hdr[0x38:], miniLimit)
+	if exact {
+		binary.LittleEndian.PutUint32(hdr[0x38:], 1)
+	} else {
+		binary.LittleEndian.PutUint32(hdr[0x38:], miniLimit)
+	}
 	binary.LittleEndian.PutUint32(hdr[0x3C:], endChain)
 	binary.LittleEndian.PutUint32(hdr[0x44:], endChain)
 	for i := 0; i < 109; i++ {

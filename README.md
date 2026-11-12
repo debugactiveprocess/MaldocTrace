@@ -108,6 +108,10 @@ maldocTrace version
 | `--input-format vba` | Analyze a plain-text VBA file. |
 | `--timeout`, `--max-steps` | Per-file time budget and interpreter step budget. |
 
+### Evasive Word formats
+
+Word also opens documents that are not `.doc` or `.docx` containers, and droppers use them because many scanners do not look inside: Word 2003 XML (`w:wordDocument`, with the VBA project as a base64 ActiveMime blob in `w:binData`), Flat OPC (`pkg:package`, every OOXML part inline) and MHT/MHTML web archives with an ActiveMime part. MaldocTrace decodes them in memory and analyses the VBA project, fields and templates they carry like any other document.
+
 ### Emails
 
 `.eml` and Outlook `.msg` files are analysed as containers: the report shows the sender, recipient, subject, date and attachment names, extracts URLs from the bodies as indicators, and analyses every attachment (documents, archives, scripts, attached messages) as a child report.

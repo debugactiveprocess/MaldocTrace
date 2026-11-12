@@ -136,6 +136,12 @@ func Extract(ctx context.Context, data []byte, lim *Limits) (*Result, error) {
 		}
 	case FormatRTF:
 		scanRTF(data, res)
+	case FormatWordXML:
+		return res, extractWordXML(ctx, data, &l, res)
+	case FormatFlatOPC:
+		return res, extractFlatOPC(ctx, data, &l, res)
+	case FormatMHT:
+		return res, extractMHT(ctx, data, &l, res)
 	case FormatVBA:
 		code := string(data)
 		res.Modules = append(res.Modules, &Module{

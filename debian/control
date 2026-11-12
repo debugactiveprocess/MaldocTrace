@@ -29,7 +29,8 @@ Description: analyzer for malicious Office documents with VBA/XLM emulation
  procedure and line, or sheet and cell, that produced it.
  .
  Supported inputs are OLE/CFB (.doc, .xls, .ppt),
- OOXML (.docx, .docm, .xlsx, .xlsm, .pptm), RTF and plain VBA text, also
+ OOXML (.docx, .docm, .xlsx, .xlsm, .pptm), RTF, Word 2003 XML, Flat OPC,
+ MHT (ActiveMime) and plain VBA text, also
  inside ZIP and 7z archives (encrypted ones are tried with the usual
  sample passwords) and .eml/.msg emails, all analyzed in memory.
  It also reports macro-less techniques such as remote template injection,

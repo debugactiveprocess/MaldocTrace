@@ -16,6 +16,12 @@ const (
 	FormatVBA
 	// FormatRTF is a Rich Text Format document.
 	FormatRTF
+	// FormatWordXML is a Word 2003 XML document (w:wordDocument).
+	FormatWordXML
+	// FormatFlatOPC is a Flat OPC document (pkg:package).
+	FormatFlatOPC
+	// FormatMHT is an MHT/MHTML document (possibly carrying ActiveMime).
+	FormatMHT
 )
 
 func (f Format) String() string {
@@ -28,6 +34,12 @@ func (f Format) String() string {
 		return "vba"
 	case FormatRTF:
 		return "rtf"
+	case FormatWordXML:
+		return "word2003xml"
+	case FormatFlatOPC:
+		return "flatopc"
+	case FormatMHT:
+		return "mht"
 	default:
 		return "unknown"
 	}
@@ -62,6 +74,9 @@ func Detect(data []byte) Format {
 	}
 	if containsNUL := bytes.IndexByte(data, 0) >= 0; containsNUL {
 		return FormatUnknown
+	}
+	if f := detectEvasive(data); f != FormatUnknown {
+		return f
 	}
 	return FormatVBA
 }

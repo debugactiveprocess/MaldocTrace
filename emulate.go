@@ -166,7 +166,7 @@ func runEmulation(ctx context.Context, res *extractor.Result, r *report.Report, 
 
 	r.IOCs = dedupeIOCs(r.IOCs)
 	r.Stats = report.Stats{EventsRecorded: len(r.Events), IOCCount: len(r.IOCs), DecodedStringCount: len(r.Decoded)}
-	r.Coverage.FormatsSupported = []string{"doc", "docm", "dotm", "docx", "xls", "xlsm", "xlsx", "ppt", "pptm", "rtf", "vba text", "xlm (excel 4.0)"}
+	r.Coverage.FormatsSupported = []string{"doc", "docm", "dotm", "docx", "xls", "xlsm", "xlsx", "ppt", "pptm", "rtf", "vba text", "xlm (excel 4.0)", "word 2003 xml", "flat opc", "mht/activemime"}
 	r.Coverage.SupportedFeatures = []string{
 		"Sub/Function", "Dim/Const", "If/Select", "For/ForEach/Do/While",
 		"Chr/ChrW/StrReverse/Replace/Split/Join/Mid/Left/Right/InStr",

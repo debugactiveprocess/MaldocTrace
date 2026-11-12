@@ -28,7 +28,7 @@ type childFile struct {
 // recursable reports inputs the pipeline can analyse as documents.
 func recursable(data []byte) bool {
 	switch extractor.Detect(data) {
-	case extractor.FormatCFB, extractor.FormatOOXML, extractor.FormatRTF:
+	case extractor.FormatCFB, extractor.FormatOOXML, extractor.FormatRTF, extractor.FormatWordXML, extractor.FormatFlatOPC, extractor.FormatMHT:
 		return true
 	}
 	return extractor.DetectContainer(data) != ""
