@@ -1,4 +1,4 @@
-.TH MALDOCTRACE 1 "November 2026" "maldoctrace 0.4.0" "User Commands"
+.TH MALDOCTRACE 1 "November 2026" "maldoctrace 0.5.0" "User Commands"
 .SH NAME
 maldoctrace \- analyze malicious Office documents by emulating VBA and Excel 4.0 macros
 .SH SYNOPSIS
@@ -76,6 +76,11 @@ with neutral extensions and a manifest.json.
 Extra password to try on encrypted documents, before the built-in list
 (Excel's default password VelvetSweatshop and common passwords).
 May be repeated.
+.TP
+.B \-\-pcode
+Analyse every module from the VBA code rebuilt from its compiled p\-code
+instead of its source. Modules whose source does not match their p\-code
+(VBA stomping) are always analysed from the p\-code.
 .TP
 .BI \-\-fail\-on " level"
 Exit with status 3 when the verdict of an analyzed file is at least

@@ -28,6 +28,7 @@ func runAnalyze(args []string) error {
 	showStrings := fs.Bool("show-strings", false, "text format: list reconstructed strings (deduplicated, with provenance)")
 	var passwords stringList
 	fs.Var(&passwords, "password", "extra `password` to try on encrypted documents (repeatable; Excel's VelvetSweatshop and common passwords are always tried)")
+	usePCode := fs.Bool("pcode", false, "analyse every module from the code rebuilt from its compiled p-code instead of its source (stomped modules always are)")
 	failOn := fs.String("fail-on", "", "exit with code 3 when a file's verdict is at least `level` (suspicious or malicious)")
 	dumpDir := fs.String("dump-payloads", "", "write decoded payloads and dropped files to `dir`/<sha256>/ (neutral extensions, with manifest.json)")
 	if _, err := parse(fs, args); err != nil {
@@ -85,6 +86,7 @@ func runAnalyze(args []string) error {
 		Limits:        lim,
 		Timeout:       *timeout,
 		RuntimeLimits: varuntime.Limits{MaxSteps: *maxSteps, MaxLoopIterations: 100_000, MaxCallDepth: 200},
+		PreferPCode:   *usePCode,
 	}
 	var files []string
 	root := fs.Arg(0)

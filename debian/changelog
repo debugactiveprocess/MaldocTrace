@@ -1,3 +1,12 @@
+maldoctrace (0.5.0-0kali1) kali-dev; urgency=medium
+
+  * New upstream release: detection of CVE-2026-21509 (Shell.Explorer.1
+    objects), VBA p-code decompiler (VBA stomping is analysed from the
+    p-code, --pcode), hidden VBA modules, OLE storage timestamps and the
+    VBA project and OLE objects of PowerPoint 97-2003 files. See CHANGELOG.md.
+
+ -- Ialle Teixeira <49375302+debugactiveprocess@users.noreply.github.com>  Fri, 13 Nov 2026 12:00:00 -0300
+
 maldoctrace (0.4.0-0kali1) kali-dev; urgency=medium
 
   * New upstream release: verdict and risk score (--fail-on), embedded OLE

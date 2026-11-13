@@ -760,7 +760,7 @@ func (b *biffBook) decompile(rgce []byte, _ string) (string, bool) {
 	return st[0], true
 }
 
-var urlText = regexp.MustCompile(`(?i)(?:https?|ftp|file)://[^\s"'<>\x00]{3,1000}|\\\\[A-Za-z0-9._-]+\\[^\s"'<>\x00]{1,1000}`)
+var urlText = regexp.MustCompile(`(?i)(?:https?|ftp|file)://[^\s"'<>\x00]{3,1000}|\\\\[A-Za-z0-9._-]+(?:@[A-Za-z0-9]+)*\\[^\s"'<>\x00]{1,1000}`)
 
 // utf16URLs finds URLs stored as UTF-16LE text (OfficeArt and HLINK keep
 // hyperlinks this way), at either byte alignment.

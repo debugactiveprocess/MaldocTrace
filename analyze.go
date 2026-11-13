@@ -19,7 +19,7 @@ import (
 
 // Version is the tool version reported in output. Release builds set it
 // from the git tag: -ldflags "-X maldoctrace.Version=1.2.3".
-var Version = "0.4.0"
+var Version = "0.5.0"
 
 // Options configures an analysis run.
 type Options struct {
@@ -31,8 +31,14 @@ type Options struct {
 	// DocumentText supplies the document body when analysing raw VBA text
 	// (container inputs use the text extracted from the file).
 	DocumentText string
+	// PreferPCode analyses every module from the code rebuilt from its
+	// compiled p-code instead of its source (stomped modules always are).
+	PreferPCode bool
 	// depth is the nesting level of an embedded file being analysed.
 	depth int
+	// afterExtract lets tests alter the extraction result (e.g. wipe module
+	// sources to simulate VBA stomping) before the analysis stages.
+	afterExtract func(*extractor.Result)
 }
 
 func (o *Options) fill() {
@@ -89,6 +95,9 @@ func AnalyzeFromBytes(parent context.Context, data []byte, path string, opts Opt
 		r.Macros = "unknown"
 		r.Diagnostics = append(r.Diagnostics, report.Diagnostic{Severity: "warning", Stage: "extract", Message: extractErr.Error()})
 	}
+	if opts.afterExtract != nil {
+		opts.afterExtract(res)
+	}
 	r.Format = res.Format.String()
 	r.Encrypted = res.Encrypted
 	if d := res.Decryption; d != nil {
@@ -121,6 +130,16 @@ func AnalyzeFromBytes(parent context.Context, data []byte, path string, opts Opt
 		r.Diagnostics = append(r.Diagnostics, report.Diagnostic{Severity: d.Severity, Stage: d.Stage, Message: d.Message})
 	}
 	r.Checks = append(r.Checks, res.Checks...)
+	for _, st := range res.StorageTimes {
+		rs := report.StorageTime{Path: st.Path}
+		if !st.Created.IsZero() {
+			rs.Created = st.Created.Format(time.RFC3339)
+		}
+		if !st.Modified.IsZero() {
+			rs.Modified = st.Modified.Format(time.RFC3339)
+		}
+		r.StorageTimes = append(r.StorageTimes, rs)
+	}
 	for _, l := range res.LimitsHit {
 		r.LimitsHit = append(r.LimitsHit, l)
 	}
@@ -131,6 +150,7 @@ func AnalyzeFromBytes(parent context.Context, data []byte, path string, opts Opt
 		}
 	}
 	runStage(r, "static", func() { staticAnalysis(res, r) })
+	runStage(r, "pcode", func() { rebuildFromPCode(res, r, opts) })
 	runStage(r, "embedded", func() { processChildren(ctx, r, embeddedFiles(res), opts) })
 	if res.HasModules() || res.HasXLM() {
 		runStage(r, "emulation", func() { runEmulation(ctx, res, r, opts) })

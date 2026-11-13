@@ -5,6 +5,38 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-13
+
+CVE-2026-21509 detection, a VBA p-code decompiler against VBA stomping, hidden modules, storage timestamps and PowerPoint 97-2003 storages.
+
+### Downloads
+
+| Platform | Archive |
+|---|---|
+| Windows x64 / ARM64 | `maldocTrace_0.5.0_windows_amd64.zip`, `maldocTrace_0.5.0_windows_arm64.zip` |
+| Linux x64 / ARM64 | `maldocTrace_0.5.0_linux_amd64.tar.gz`, `maldocTrace_0.5.0_linux_arm64.tar.gz` |
+| macOS Intel / Apple Silicon | `maldocTrace_0.5.0_darwin_amd64.tar.gz`, `maldocTrace_0.5.0_darwin_arm64.tar.gz` |
+
+You can verify downloads against `checksums.txt` (SHA-256). The binaries are static and have no dependencies. The macOS builds are not notarized, so remove the quarantine flag before running them: `xattr -d com.apple.quarantine maldocTrace`.
+
+### Added
+
+- **VBA p-code decompiler** (`vba/pcode`): the compiled p-code of each module is disassembled (VBA6 and VBA7, 32- and 64-bit Office, including Mac byte order) and decompiled back to VBA source: procedures with their parameters, `Declare` statements with library and alias (also on 64-bit Office), variables and fixed/dynamic arrays, expressions, `With`, `For`/`For Each`, `If`/`ElseIf`, `Select Case`, loops, `On Error`, `#If` blocks, file I/O and `Debug.Print`.
+  - **VBA stomping**: a module whose p-code contains string literals or procedures that its source lacks, or whose source is empty or unreadable while the p-code is intact, is reported as stomped and analysed from the code rebuilt from its p-code (what Office actually runs). Modules whose compressed source is destroyed are now kept when their p-code is readable.
+  - `--pcode` analyses every module from its p-code. The JSON report marks those modules with `from_pcode` and includes the rebuilt code as `pcode_source`.
+  - VBA5 (Office 97) module layout is supported as well; it is covered by fuzzing only, as no VBA5 sample was available.
+  - Validation on the sample set: analysing only the p-code gives the same commands, indicators and verdict as the source on 8 of 9 VBA samples (the ninth differs only in the text of one static indicator), and simulated stomping (source wiped or replaced by a decoy) of 7 samples recovers everything the intact documents yield.
+
+- **Hidden VBA modules** (EvilClippy): a module in the project's `dir` stream but missing from the `PROJECT` stream, so the VBA editor does not show it while Office runs it, is a high-severity `hidden_vba_module` finding.
+- **Storage timestamps**: the creation and modification times of the OLE storages (root entry, VBA project, embedded objects) are reported (`storage_timestamps` in JSON, a text section) for the case timeline. Schema 1.7.0.
+- **PowerPoint 97-2003**: the VBA project and the OLE objects of `.ppt` files, stored zlib-compressed in `ExOleObjStg` records of the `PowerPoint Document` stream, are extracted; macros are analysed and objects go through the embedded-object checks.
+- **CVE-2026-21509 (`Shell.Explorer.1` objects)**: embedded OLE objects of the legacy Internet Explorer browser classes (`Shell.Explorer.1`, `Shell.Explorer.2`) are reported, and the URL they navigate to when the document opens is decoded from their `CONTENTS` data and reported as a high-severity `browser_object_url` finding (an attack on its own in the verdict) and an indicator. The detail flags `.lnk` and other directly runnable targets, and UNC/WebDAV paths. Works in OOXML (`oleObject*.bin`), Word `ObjectPool`, Excel `MBD` storages and RTF `\objdata`.
+- OLE objects are also classified by the **CLSID of their storage**, the class Office actually instantiates: objects without a `\x01CompObj` stream (the shape of the CVE-2026-21509 samples), with a forged ProgID, or with an empty or decoy RTF class name are still recognised (`Shell.Explorer.1/2`, `htmlfile`, `Equation.3`, `Package`, `OLE2Link`).
+
+### Fixed
+
+- UNC paths with a WebDAV/port suffix (`\\host@SSL\DavWWWRoot\...`) are now extracted as indicators.
+
 ## [0.4.0] - 2026-11-12
 
 Verdicts, embedded objects, archives, email, OneNote and more document formats.
@@ -216,7 +248,8 @@ You can verify downloads against `checksums.txt` (SHA-256). The binaries are sta
   - `--dump-payloads DIR` to write decoded payloads and dropped files with neutral extensions and a `manifest.json`.
 - **Robustness**: each pipeline stage recovers from panics and records them as diagnostics. The VBA pipeline and container parsers are fuzzed.
 
-[Unreleased]: https://github.com/debugactiveprocess/MaldocTrace/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/debugactiveprocess/MaldocTrace/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/debugactiveprocess/MaldocTrace/releases/tag/v0.5.0
 [0.4.0]: https://github.com/debugactiveprocess/MaldocTrace/releases/tag/v0.4.0
 [0.3.1]: https://github.com/debugactiveprocess/MaldocTrace/releases/tag/v0.3.1
 [0.3.0]: https://github.com/debugactiveprocess/MaldocTrace/releases/tag/v0.3.0

@@ -3,6 +3,7 @@ package extractor
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"strconv"
 	"strings"
 	"unicode/utf16"
@@ -25,6 +26,11 @@ type OLEObject struct {
 	// UserType and ProgID come from \x01CompObj.
 	UserType string
 	ProgID   string
+	// CLSID is the class of the object's storage ("{XXXXXXXX-...}", empty
+	// when unset) and CLSIDClass its name when it is a known class. Office
+	// instantiates the object by this CLSID, whatever CompObj claims.
+	CLSID      string
+	CLSIDClass string
 	// Linked is set when the \x01Ole stream flags the object as a link;
 	// Monikers lists the decoded link sources (URL or file path).
 	Linked   bool
@@ -57,10 +63,110 @@ func (o *OLEObject) Class() string {
 	if o.UserType != "" {
 		return o.UserType
 	}
+	if o.CLSIDClass != "" {
+		return o.CLSIDClass
+	}
 	if o.Package != nil {
 		return "Package"
 	}
 	return ""
+}
+
+// oleClassCLSIDs names the OLE classes recognised by the CLSID of their
+// storage, so an object without (or with a forged) \x01CompObj stream is
+// still classified.
+var oleClassCLSIDs = map[string]string{
+	"{EAB22AC3-30C1-11CF-A7EB-0000C05BAE0B}": "Shell.Explorer.1",
+	"{8856F961-340A-11D0-A96B-00C04FD705A2}": "Shell.Explorer.2",
+	"{25336920-03F9-11CF-8FD0-00AA00686F13}": "htmlfile",
+	"{0002CE02-0000-0000-C000-000000000046}": "Equation.3",
+	"{0003000C-0000-0000-C000-000000000046}": "Package",
+	"{00000300-0000-0000-C000-000000000046}": "OLE2Link",
+}
+
+// formatCLSID renders a CLSID stored in its on-disk (mixed-endian) layout
+// as "{XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX}", or "" when it is all zero.
+func formatCLSID(c [16]byte) string {
+	if c == ([16]byte{}) {
+		return ""
+	}
+	return fmt.Sprintf("{%08X-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X}",
+		binary.LittleEndian.Uint32(c[0:]), binary.LittleEndian.Uint16(c[4:]), binary.LittleEndian.Uint16(c[6:]),
+		c[8], c[9], c[10], c[11], c[12], c[13], c[14], c[15])
+}
+
+// setCLSID records the storage class of the object.
+func (o *OLEObject) setCLSID(c [16]byte) {
+	o.CLSID = formatCLSID(c)
+	o.CLSIDClass = oleClassCLSIDs[o.CLSID]
+}
+
+// classNote returns the severity and note of the first known class that
+// name starts with.
+func classNote(name string) (severity, note string, ok bool) {
+	low := strings.ToLower(name)
+	if low == "" {
+		return "", "", false
+	}
+	for _, k := range knownObjectClasses {
+		if strings.HasPrefix(low, k.prefix) {
+			return k.severity, k.note, true
+		}
+	}
+	return "", "", false
+}
+
+// isBrowserClass reports the OLE classes that host the Internet Explorer
+// engine (Shell.Explorer, the WebBrowser control) and navigate to a URL
+// stored in their persisted data when the document is opened.
+func isBrowserClass(name string) bool {
+	return strings.HasPrefix(strings.ToLower(name), "shell.explorer")
+}
+
+// objectURLs returns the URLs and UNC paths found in an object's data, as
+// UTF-16 (how Shell.Explorer persists its location) or as ANSI text.
+func objectURLs(b []byte) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, u := range append(utf16URLs(b), urlText.FindAllString(string(b), 16)...) {
+		if !seen[u] && len(out) < 16 {
+			seen[u] = true
+			out = append(out, u)
+		}
+	}
+	return out
+}
+
+// shortcutExts are file types that run when the browser object opens them;
+// URLs ending in them are the payload of the Shell.Explorer.1 chain.
+var shortcutExts = []string{".lnk", ".url", ".hta", ".js", ".jse", ".vbs", ".vbe", ".wsf", ".cmd", ".bat", ".exe", ".scr", ".cpl", ".msi", ".library-ms", ".search-ms"}
+
+// reportBrowserURLs reports the URLs an embedded browser object navigates
+// to. It returns them so callers can skip duplicate generic findings.
+func reportBrowserURLs(class string, data []byte, location string, res *Result) map[string]bool {
+	done := map[string]bool{}
+	for _, u := range objectURLs(data) {
+		detail := "embedded " + class + " object (Internet Explorer browser control) navigates to this URL when the document opens"
+		if strings.EqualFold(class, "Shell.Explorer.1") {
+			detail += "; Shell.Explorer.1 was left without a kill bit and is exploited as CVE-2026-21509"
+		}
+		p := strings.ToLower(u)
+		if i := strings.IndexAny(p, "?#"); i >= 0 {
+			p = p[:i]
+		}
+		for _, ext := range shortcutExts {
+			if strings.HasSuffix(p, ext) {
+				detail += "; the target is a " + ext + " file, which the browser object opens and runs without a prompt"
+				break
+			}
+		}
+		if strings.HasPrefix(p, `\\`) || strings.HasPrefix(p, "file:") {
+			detail += "; UNC/WebDAV path: Windows also sends the user's NTLM credentials to that host"
+		}
+		res.addExternal(ExternalRef{Kind: "browser_object_url", Severity: "high", Location: location, Target: u, Detail: detail})
+		done[u] = true
+	}
+	return done
 }
 
 var (
@@ -295,6 +401,7 @@ func oleStoragePrefixes(cfb *cfbReader, root string) []string {
 // container root, or "ObjectPool/_1234/").
 func readOLEObject(cfb *cfbReader, prefix, location string) *OLEObject {
 	o := &OLEObject{Location: location}
+	o.setCLSID(cfb.storageCLSID(strings.TrimSuffix(prefix, "/")))
 	if b, err := cfb.readStream(prefix + nameCompObj); err == nil {
 		o.UserType, o.ProgID = parseCompObj(b)
 	}
@@ -332,7 +439,6 @@ func readOLEObject(cfb *cfbReader, prefix, location string) *OLEObject {
 // reportOLEObject turns an inspected object into external references.
 func reportOLEObject(o *OLEObject, res *Result) {
 	class := o.Class()
-	lowClass := strings.ToLower(class)
 	e := ExternalRef{Kind: "embedded_ole", Severity: "medium", Location: o.Location, Target: class,
 		Detail: "embedded OLE object"}
 	if class != "" {
@@ -341,10 +447,29 @@ func reportOLEObject(o *OLEObject, res *Result) {
 			e.Detail += " (" + o.UserType + ")"
 		}
 	}
-	for _, k := range knownObjectClasses {
-		if strings.HasPrefix(lowClass, k.prefix) {
-			e.Severity = k.severity
-			e.Detail += "; " + k.note
+	if o.CLSIDClass != "" {
+		if class == o.CLSIDClass {
+			e.Detail += " (identified by its storage CLSID " + o.CLSID + ")"
+		} else {
+			e.Detail += "; its storage CLSID " + o.CLSID + " is " + o.CLSIDClass + ", the class Office actually instantiates"
+		}
+	}
+	// The storage CLSID decides what runs, so a known dangerous CLSID wins
+	// over a harmless-looking ProgID.
+	for _, name := range []string{o.CLSIDClass, class} {
+		if sev, note, ok := classNote(name); ok {
+			e.Severity = sev
+			e.Detail += "; " + note
+			break
+		}
+	}
+	var browserURLs map[string]bool
+	for _, name := range []string{o.CLSIDClass, class} {
+		if isBrowserClass(name) {
+			browserURLs = reportBrowserURLs(name, o.Contents, o.Location, res)
+			if len(browserURLs) == 0 {
+				e.Detail += "; no navigation URL could be decoded from its data"
+			}
 			break
 		}
 	}
@@ -403,6 +528,9 @@ func reportOLEObject(o *OLEObject, res *Result) {
 		urls = append(urls, urlText.FindAllString(p.Path+" "+p.TempPath, 4)...)
 	}
 	for _, u := range urls {
+		if browserURLs[u] {
+			continue
+		}
 		res.addExternal(ExternalRef{Kind: "embedded_url", Severity: "medium", Location: o.Location, Target: u, Detail: "URL inside the embedded object"})
 	}
 }

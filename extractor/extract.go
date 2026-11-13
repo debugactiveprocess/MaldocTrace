@@ -30,6 +30,13 @@ type Module struct {
 	// source in the module stream (empty when the module was never compiled).
 	PCode      []byte `json:"-"`
 	SourceFile string `json:"source_file,omitempty"`
+	// Project is the VBA project the module belongs to (its identifier
+	// table is needed to read the p-code).
+	Project *Project `json:"-"`
+	// Hidden is set when the module is in the dir stream (so Office loads
+	// and runs it) but not listed in the PROJECT stream, which hides it
+	// from the VBA editor (the EvilClippy technique).
+	Hidden bool `json:"hidden,omitempty"`
 }
 
 // Project is a VBA project found in a container.
@@ -40,6 +47,9 @@ type Project struct {
 	Codepage   uint16 `json:"codepage"`
 	SysKind    uint32 `json:"sys_kind"`
 	LCID       uint32 `json:"lcid"`
+	// VBAProject is the raw _VBA_PROJECT stream (version and identifier
+	// table of the compiled p-code); nil when it is missing.
+	VBAProject []byte `json:"-"`
 }
 
 // Result is the outcome of extraction. Modules and Projects are populated even
@@ -72,6 +82,8 @@ type Result struct {
 	Checks []string `json:"checks,omitempty"`
 	// Embedded lists files carried by OLE objects and embedded documents.
 	Embedded []EmbeddedFile `json:"-"`
+	// StorageTimes are the timestamps of the top-level CFB container.
+	StorageTimes []StorageTime `json:"storage_times,omitempty"`
 }
 
 // HasXLM reports whether an Excel 4.0 macro sheet with formulas was found.
@@ -251,6 +263,7 @@ func extractFromCFB(ctx context.Context, data []byte, sourceFile string, lim *Li
 		}
 	}
 	if sourceFile == "" {
+		res.StorageTimes = storageTimes(cfb)
 		readOLEProperties(cfb, res)
 		if cfb.find("WordDocument") != nil {
 			readWordVariables(cfb, res)
@@ -260,6 +273,9 @@ func extractFromCFB(ctx context.Context, data []byte, sourceFile string, lim *Li
 		}
 		n := scanOLEStorages(cfb, res)
 		res.addCheck("OLE object storages: ObjectPool, MBD (" + strconv.Itoa(n) + " object(s))")
+		if cfb.find("PowerPoint Document") != nil {
+			scanPowerPoint(ctx, cfb, lim, res)
+		}
 		for _, name := range []string{"Workbook", "Book"} {
 			if cfb.find(name) != nil {
 				extractBIFF(cfb, name, lim, res)
@@ -292,6 +308,32 @@ func extractFromCFB(ctx context.Context, data []byte, sourceFile string, lim *Li
 		extractVBAProject(ctx, cfb, vbaRoot, sourceFile, lim, res)
 	}
 	return nil
+}
+
+// projectStreamModules returns the lower-cased module names declared in a
+// PROJECT stream ([MS-OVBA] 2.3.1: Module=, Document=Name/&H..., Class=,
+// BaseClass=).
+func projectStreamModules(text string) map[string]bool {
+	out := map[string]bool{}
+	for _, line := range strings.FieldsFunc(text, func(r rune) bool { return r == '\r' || r == '\n' }) {
+		if strings.HasPrefix(line, "[") {
+			break // [Host Extender Info] and [Workspace] follow the properties
+		}
+		key, val, ok := strings.Cut(line, "=")
+		if !ok {
+			continue
+		}
+		switch strings.ToLower(strings.TrimSpace(key)) {
+		case "module", "document", "class", "baseclass":
+			if i := strings.Index(val, "/&H"); i >= 0 {
+				val = val[:i]
+			}
+			if v := strings.ToLower(strings.TrimSpace(val)); v != "" {
+				out[v] = true
+			}
+		}
+	}
+	return out
 }
 
 // parentPath returns the parent directory path of a storage path ("" for a
@@ -329,7 +371,16 @@ func extractVBAProject(ctx context.Context, cfb *cfbReader, vbaRoot, sourceFile 
 		SysKind:    proj.sysKind,
 		LCID:       proj.lcid,
 	}
+	if b, err := cfb.readStream(vbaRoot + "VBA/_VBA_PROJECT"); err == nil {
+		p.VBAProject = b
+	}
 	res.Projects = append(res.Projects, p)
+	// The PROJECT stream lists the modules the VBA editor shows; nil when
+	// the stream is missing (then nothing can be called hidden).
+	var listed map[string]bool
+	if b, err := cfb.readStream(vbaRoot + "PROJECT"); err == nil {
+		listed = projectStreamModules(decodeCodepage(proj.codepage, b))
+	}
 
 	for i := range proj.modules {
 		if ctx.Err() != nil {
@@ -351,8 +402,12 @@ func extractVBAProject(ctx context.Context, cfb *cfbReader, vbaRoot, sourceFile 
 			Code:       code,
 			PCode:      pcode,
 			SourceFile: sourceFile,
+			Project:    p,
 		}
 		m.FileName = m.Name + moduleExt(rm.typ)
+		if listed != nil && !listed[strings.ToLower(m.Name)] && !listed[strings.ToLower(m.StreamName)] {
+			m.Hidden = true
+		}
 		res.Modules = append(res.Modules, m)
 	}
 }
@@ -391,6 +446,13 @@ func readModuleSource(cfb *cfbReader, vbaRoot string, rm *rawModule, cp uint16, 
 	}
 	codeRaw, err := decompressOVBA(streamBytes[off:], lim.MaxDecompressed)
 	if err != nil {
+		if off > 0 {
+			// The source was destroyed (a VBA stomping technique) but the
+			// compiled p-code before it is intact: keep the module so the
+			// code can be rebuilt from the p-code.
+			res.addDiag("warning", "extract", fmt.Sprintf("module %q source is unreadable (%v); only its p-code is available", rm.name, err))
+			return nil, "", streamBytes[:off], true
+		}
 		res.addDiag("warning", "extract", fmt.Sprintf("module %q decompression failed: %v", rm.name, err))
 		return nil, "", nil, false
 	}

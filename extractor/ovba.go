@@ -227,6 +227,10 @@ func decodeUTF16(data []byte, order binary.ByteOrder) string {
 	return string(utf16.Decode(u))
 }
 
+// DecodeText decodes bytes of the module (p-code identifiers and literals)
+// with the project code page.
+func (m *Module) DecodeText(b []byte) string { return decodeCodepage(m.Codepage, b) }
+
 // decodeCodepage decodes bytes using the given Windows codepage identifier,
 // falling back to Windows-1252 when unavailable. A leading UTF-16 BOM switches
 // to UTF-16 decoding.
