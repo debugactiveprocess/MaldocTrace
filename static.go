@@ -20,6 +20,12 @@ func staticAnalysis(res *extractor.Result, r *report.Report) {
 		}
 	}
 	detectStomping(res, r)
+	for _, m := range res.Modules {
+		if m.Hidden {
+			addFinding(r, report.StaticFinding{Kind: "hidden_vba_module", Severity: "high", Location: "module " + m.Name,
+				Detail: "module is in the VBA project (dir stream), so Office loads and runs it, but it is missing from the PROJECT stream, which hides it from the VBA editor (EvilClippy technique)"})
+		}
+	}
 
 	for _, s := range res.Sheets {
 		if s.Kind != "macrosheet" {

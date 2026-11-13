@@ -107,8 +107,8 @@ func Disassemble(stream []byte, p *Project) (mod *Module, err error) {
 			err = fmt.Errorf("pcode: malformed module: %v", r)
 		}
 	}()
-	if p == nil || p.VBA < 6 {
-		return nil, errors.New("pcode: only VBA6/VBA7 p-code is supported")
+	if p == nil || p.VBA < 5 {
+		return nil, errors.New("pcode: only VBA5, VBA6 and VBA7 p-code is supported")
 	}
 	if len(stream) < 0x50 {
 		return nil, ErrNoPCode
@@ -131,29 +131,39 @@ func Disassemble(stream []byte, p *Project) (mod *Module, err error) {
 		return stream[lenAt+4 : lenAt+4+n]
 	}
 	m := &modTables{proj: p, be: be}
-	// The declaration table (Declare statements: library and alias) is
-	// length-prefixed right after the bytes B6 00 FF FF 01 01; where that
-	// lands depends on the Office build (0x43 for 64-bit Office 2010,
-	// 0x3F otherwise), so it is located by that signature.
-	declLen := 0x3F
-	if p.Is64 && p.Version < 0xA0 {
-		declLen = 0x43
-	}
-	if i := bytes.Index(stream[0x30:min(len(stream), 0x60)], declTableSig); i >= 0 {
-		declLen = 0x30 + i + len(declTableSig)
-	}
-	m.decls = slice(declLen)
-	if v := at32(0x11); v >= 0 {
-		start := v + 10
-		if p.Is64 {
-			start = v + 12
+	// lineTableAt is the header field whose value, plus 0x3C, locates the
+	// p-code line table.
+	lineTableAt := 0x19
+	if p.VBA == 5 {
+		lineTableAt = m.vba5Tables(stream, at32, slice)
+		if lineTableAt < 0 {
+			return nil, ErrNoPCode
 		}
-		m.indirect = slice(start)
+	} else {
+		// The declaration table (Declare statements: library and alias)
+		// is length-prefixed right after the bytes B6 00 FF FF 01 01;
+		// where that lands depends on the Office build (0x43 for 64-bit
+		// Office 2010, 0x3F otherwise), so it is located by that signature.
+		declLen := 0x3F
+		if p.Is64 && p.Version < 0xA0 {
+			declLen = 0x43
+		}
+		if i := bytes.Index(stream[0x30:min(len(stream), 0x60)], declTableSig); i >= 0 {
+			declLen = 0x30 + i + len(declTableSig)
+		}
+		m.decls = slice(declLen)
+		if v := at32(0x11); v >= 0 {
+			start := v + 10
+			if p.Is64 {
+				start = v + 12
+			}
+			m.indirect = slice(start)
+		}
+		if v := at32(0x05); v >= 0 {
+			m.objects = slice(v + 0x8A)
+		}
 	}
-	if v := at32(0x05); v >= 0 {
-		m.objects = slice(v + 0x8A)
-	}
-	base := at32(0x19)
+	base := at32(lineTableAt)
 	if base < 0 {
 		return nil, ErrNoPCode
 	}
@@ -183,6 +193,48 @@ func Disassemble(stream []byte, p *Project) (mod *Module, err error) {
 		mod.Lines = append(mod.Lines, line)
 	}
 	return mod, nil
+}
+
+// vba5Tables locates the tables of a VBA5 (Office 97) module, whose header
+// is a chain of length-prefixed blocks rather than fixed offsets. It
+// returns the offset of the line-table field, or -1.
+func (m *modTables) vba5Tables(stream []byte, at32 func(int) int, slice func(int) []byte) int {
+	m.decls = slice(11)
+	n := at32(11)
+	if n < 0 {
+		return -1
+	}
+	off := 11 + 4 + n + 64
+	// A word count of 16-byte entries.
+	r := &reader{b: stream, p: off, be: m.be}
+	off += 2 + r.u16()*16
+	if r.err != nil {
+		return -1
+	}
+	skipDW := func(o int) int {
+		v := at32(o)
+		if v < 0 {
+			return -1
+		}
+		return o + 4 + v
+	}
+	if off = skipDW(off); off < 0 {
+		return -1
+	}
+	off += 6
+	if off = skipDW(off); off < 0 {
+		return -1
+	}
+	if v := at32(off + 8); v >= 0 {
+		start := v + 14
+		if l := at32(v + 10); l >= 0 && start+l <= len(stream) {
+			m.indirect = stream[start : start+l]
+		}
+	}
+	if v := at32(off); v >= 0 {
+		m.objects = slice(v + 0x8A)
+	}
+	return off + 77
 }
 
 type modTables struct {
@@ -299,10 +351,16 @@ func (m *modTables) funcDecl(d, opType int) *FuncDecl {
 	if d+o+57 < len(t) {
 		cOptions, newFlags = t[d+o+54], t[d+o+57]
 	}
-	if !p.Is64 && newFlags&0x02 == 0 {
+	switch {
+	case p.VBA <= 5:
+		// VBA5 keeps the public flag in the procedure flags.
+		if flags&0x0008 == 0 {
+			f.Scope = "Private"
+		}
+	case !p.Is64 && newFlags&0x02 == 0:
 		f.Scope = "Private"
 	}
-	if newFlags&0x04 != 0 {
+	if p.VBA > 5 && newFlags&0x04 != 0 {
 		f.Scope = "Friend"
 	}
 	if opType&0x04 != 0 {

@@ -95,10 +95,26 @@ func VBAProject(prefix string, modules map[string]string) []Stream {
 		streams = append(streams, Stream{Name: prefix + "VBA/" + n, Data: CompressOVBA([]byte(modules[n]))})
 	}
 	dir = append(dir, rec(0x0010, nil)...)
+	project := "ID=\"{00000000-0000-0000-0000-000000000000}\"\r\n"
+	for _, n := range names {
+		project += "Module=" + n + "\r\n"
+	}
+	project += "Name=\"Project\"\r\n"
 	streams = append(streams,
 		Stream{Name: prefix + "VBA/dir", Data: CompressOVBA(dir)},
 		Stream{Name: prefix + "VBA/_VBA_PROJECT", Data: []byte{0xCC, 0x61, 0xFF, 0xFF, 0x00, 0x00, 0x00}},
-		Stream{Name: prefix + "PROJECT", Data: []byte("ID=\"{00000000-0000-0000-0000-000000000000}\"\r\nModule=" + names[0] + "\r\nName=\"Project\"\r\n")},
+		Stream{Name: prefix + "PROJECT", Data: []byte(project)},
 	)
 	return streams
+}
+
+// SetRootTimes returns a copy of a file made by Build or BuildExact whose
+// root storage carries the given creation and modification FILETIMEs.
+func SetRootTimes(file []byte, created, modified uint64) []byte {
+	out := append([]byte(nil), file...)
+	dirStart := int(binary.LittleEndian.Uint32(out[0x30:]))
+	e := (dirStart + 1) * sector
+	binary.LittleEndian.PutUint64(out[e+100:], created)
+	binary.LittleEndian.PutUint64(out[e+108:], modified)
+	return out
 }

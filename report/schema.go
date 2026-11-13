@@ -5,7 +5,7 @@ package report
 import "github.com/debugactiveprocess/MaldocTrace/vba/runtime"
 
 // SchemaVersion is the version of the JSON schema emitted by this tool.
-const SchemaVersion = "1.6.0"
+const SchemaVersion = "1.7.0"
 
 // Report is the top-level, self-contained analysis result for one file.
 type Report struct {
@@ -24,17 +24,20 @@ type Report struct {
 	// MacroSheets lists Excel 4.0 (XLM) macro sheets and their formulas.
 	MacroSheets []MacroSheet `json:"macro_sheets,omitempty"`
 	// Properties are document properties and variables macros can read.
-	Properties        []Property `json:"document_properties,omitempty"`
-	Indicators        []IOC      `json:"indicators"`
-	OperationalStatus string     `json:"operational_status"`
-	SemanticCoverage  string     `json:"semantic_coverage"`
-	SchemaVersion     string     `json:"schema_version"`
-	ToolVersion       string     `json:"tool_version"`
-	File              FileInfo   `json:"file"`
-	Format            string     `json:"format"`
-	Status            string     `json:"status"` // complete | partial | failed | timeout
-	Macros            string     `json:"macros"` // present | absent | unknown
-	Encrypted         bool       `json:"encrypted"`
+	Properties []Property `json:"document_properties,omitempty"`
+	// StorageTimes are the creation/modification times of the CFB
+	// storages (root, VBA project, OLE objects), for timelines.
+	StorageTimes      []StorageTime `json:"storage_timestamps,omitempty"`
+	Indicators        []IOC         `json:"indicators"`
+	OperationalStatus string        `json:"operational_status"`
+	SemanticCoverage  string        `json:"semantic_coverage"`
+	SchemaVersion     string        `json:"schema_version"`
+	ToolVersion       string        `json:"tool_version"`
+	File              FileInfo      `json:"file"`
+	Format            string        `json:"format"`
+	Status            string        `json:"status"` // complete | partial | failed | timeout
+	Macros            string        `json:"macros"` // present | absent | unknown
+	Encrypted         bool          `json:"encrypted"`
 	// Decryption tells how an encrypted document was opened (scheme and
 	// the password that worked) or why it could not be.
 	Decryption  *Decryption  `json:"decryption,omitempty"`
@@ -241,6 +244,14 @@ type XLMFormula struct {
 }
 
 // Property is a document property or document variable.
+// StorageTime is a CFB storage's creation and modification time (RFC 3339,
+// UTC; empty when unset).
+type StorageTime struct {
+	Path     string `json:"path"`
+	Created  string `json:"created,omitempty"`
+	Modified string `json:"modified,omitempty"`
+}
+
 type Property struct {
 	Name   string `json:"name"`
 	Value  string `json:"value"`

@@ -53,7 +53,7 @@ func rebuildFromPCode(res *extractor.Result, r *report.Report, opts Options) {
 			}
 			projects[m.Project] = proj
 		}
-		if proj == nil || proj.VBA < 6 {
+		if proj == nil || proj.VBA < 5 {
 			continue
 		}
 		mod, err := pcode.Disassemble(m.PCode, proj)

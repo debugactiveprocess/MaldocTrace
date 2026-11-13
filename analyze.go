@@ -130,6 +130,16 @@ func AnalyzeFromBytes(parent context.Context, data []byte, path string, opts Opt
 		r.Diagnostics = append(r.Diagnostics, report.Diagnostic{Severity: d.Severity, Stage: d.Stage, Message: d.Message})
 	}
 	r.Checks = append(r.Checks, res.Checks...)
+	for _, st := range res.StorageTimes {
+		rs := report.StorageTime{Path: st.Path}
+		if !st.Created.IsZero() {
+			rs.Created = st.Created.Format(time.RFC3339)
+		}
+		if !st.Modified.IsZero() {
+			rs.Modified = st.Modified.Format(time.RFC3339)
+		}
+		r.StorageTimes = append(r.StorageTimes, rs)
+	}
 	for _, l := range res.LimitsHit {
 		r.LimitsHit = append(r.LimitsHit, l)
 	}

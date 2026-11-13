@@ -104,7 +104,10 @@ func FuzzDisassemble(f *testing.F) {
 	f.Add(hdr, []byte{0xCC, 0x61, 0xB2, 0}, true)
 	f.Fuzz(func(t *testing.T, module, project []byte, is64 bool) {
 		p, _ := ParseProject(project, is64, nil)
-		if p.VBA < 6 {
+		// Exercise both module layouts: VBA5 (Office 97) and VBA6/7.
+		if p.VBA < 5 || (is64 && len(module)%2 == 1) {
+			p.VBA = 5
+		} else if p.VBA < 6 {
 			p.VBA = 7
 		}
 		if m, err := Disassemble(module, p); err == nil {

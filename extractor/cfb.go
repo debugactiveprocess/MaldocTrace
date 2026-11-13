@@ -29,6 +29,8 @@ type cfbEntry struct {
 	// clsid is the class of a storage (for an OLE object, the class Office
 	// instantiates); all zero for streams and unset storages.
 	clsid [16]byte
+	// created and modified are the storage FILETIMEs (zero when unset).
+	created, modified uint64
 }
 
 // cfbReader is a parsed CFB (OLE2 compound file) container.
@@ -242,6 +244,8 @@ func (r *cfbReader) readDirectory(lim *Limits) error {
 				size:        size,
 			}
 			copy(ent.clsid[:], eb[80:96])
+			ent.created = binary.LittleEndian.Uint64(eb[100:])
+			ent.modified = binary.LittleEndian.Uint64(eb[108:])
 			r.entries = append(r.entries, ent)
 			if len(r.entries) > int(lim.MaxContainerEntries) {
 				return Wrap("cfb", ErrLimitExceeded)

@@ -205,6 +205,23 @@ func RenderTextWith(r *Report, opt TextOptions) string {
 			fmt.Fprintf(&b, "  [%s] %s = %s\n", p.Kind, p.Name, printable(abbr(p.Value), valuePreview, "document_properties"))
 		}
 	}
+	if len(r.StorageTimes) > 0 {
+		fmt.Fprintln(&b, "\n-- Storage timestamps (UTC) --")
+		for i, st := range r.StorageTimes {
+			if i == maxPropertyLines {
+				fmt.Fprintf(&b, "  ... %d more in JSON storage_timestamps\n", len(r.StorageTimes)-i)
+				break
+			}
+			created, modified := st.Created, st.Modified
+			if created == "" {
+				created = "-"
+			}
+			if modified == "" {
+				modified = "-"
+			}
+			fmt.Fprintf(&b, "  %-36s created %-20s modified %s\n", st.Path, created, modified)
+		}
+	}
 	if r.Encrypted {
 		switch d := r.Decryption; {
 		case d != nil && d.Decrypted:

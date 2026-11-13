@@ -9,7 +9,7 @@ Documents with no macros at all are covered too. Remote template injection, DDE 
 
 ## Features
 
-- **Container extraction**: OLE/CFB (`.doc`, `.xls`, `.ppt`), OOXML (`.docx`, `.docm`, `.xlsx`, `.xlsm`, `.pptm`), RTF and raw VBA text. Includes MS-OVBA decompression, UserForm control properties, and resource limits against zip bombs and malformed containers.
+- **Container extraction**: OLE/CFB (`.doc`, `.xls`, `.ppt`, including the VBA project and OLE objects PowerPoint keeps in compressed `ExOleObjStg` records), OOXML (`.docx`, `.docm`, `.xlsx`, `.xlsm`, `.pptm`), RTF and raw VBA text. Includes MS-OVBA decompression, UserForm control properties, and resource limits against zip bombs and malformed containers.
 - **Encrypted documents**: Excel's default password `VelvetSweatshop`, a short list of common passwords and any `--password` you give are tried against:
   - `.xls` workbooks encrypted with RC4 or RC4 CryptoAPI (`FILEPASS`), so cells and Excel 4.0 macro sheets can be read. The VBA project of an `.xls` is stored outside the encrypted stream and is always extracted;
   - OOXML files wrapped in `EncryptionInfo`/`EncryptedPackage` with ECMA-376 Standard (AES) or Agile (AES, SHA-1/256/384/512) encryption.
@@ -30,7 +30,8 @@ Documents with no macros at all are covered too. Remote template injection, DDE 
   - hyperlinks on pictures and cells, and QR-code lures;
   - embedded and linked OLE objects of `.xls` (`MBD` storages), `.doc` (`ObjectPool`) and OOXML (`embeddings/`) files: linked objects with URL monikers, OLE Packages, Equation Editor data, and the files they carry (PDF with its active-content markers and links, scripts, executables, archives). Embedded documents are analysed recursively and reported under `children` with their own verdict;
   - when nothing is found, the text report lists what was checked (also in the JSON `checks` field);
-  - **VBA stomping**: Office runs a module's compiled p-code, not its source text, so stomping tools erase the source or replace it with a decoy. MaldocTrace decompiles the p-code back to VBA (VBA6 and VBA7, 32- and 64-bit, including `Declare` statements with their library and alias) and compares it with the source: string literals or procedures that exist only in the p-code mark the module as stomped, and the code rebuilt from the p-code is what gets emulated. `--pcode` analyses every module that way.
+  - **VBA stomping**: Office runs a module's compiled p-code, not its source text, so stomping tools erase the source or replace it with a decoy. MaldocTrace decompiles the p-code back to VBA (VBA5, VBA6 and VBA7, 32- and 64-bit, including `Declare` statements with their library and alias) and compares it with the source: string literals or procedures that exist only in the p-code mark the module as stomped, and the code rebuilt from the p-code is what gets emulated. `--pcode` analyses every module that way.
+  - **Hidden modules**: a module in the VBA project (`dir` stream) that is missing from the `PROJECT` stream does not appear in the VBA editor but still runs (the EvilClippy technique); it is reported as `hidden_vba_module`.
 - **Payload hiding places**: cell values (`Sheets("x").Range("A1")`, `Cells(r, c)`), document properties (`BuiltInDocumentProperties("Comments")`, custom properties), document variables (`ActiveDocument.Variables`, from `.docx` settings and the `StwUser` table of `.doc` files) and UserForm controls (`TextBox.Text`, `Label.Caption`) are all available to the emulated macro.
 - **Document body text**: extracted from Word 97-2003 (piece table) and `.docx`. Droppers often hide their payload in the document body and read it back through `ActiveDocument.Paragraphs(n).Range.Text`.
 - **VBA interpreter**: a lexer, parser and bounded interpreter covering the subset of VBA that malware relies on: procedures, `ByRef` parameters, named arguments, conditional compilation, loops, arrays and the string built-ins.
@@ -112,7 +113,7 @@ maldocTrace version
 | Option | Description |
 |---|---|
 | `--format text` | Human-readable report (default). |
-| `--format json` | Full, versioned JSON report (schema `1.6.0`). It always includes indicators, diagnostics, decoded strings and full payload content. |
+| `--format json` | Full, versioned JSON report (schema `1.7.0`). It always includes indicators, diagnostics, decoded strings and full payload content. |
 | `--format jsonl` | One JSON report per line, for batch analysis with `--recursive`. |
 | `--show-strings` | Text format only. Lists the reconstructed strings, deduplicated, with every module/procedure/line occurrence and the reconstruction method. |
 | `--dump-payloads DIR` | Writes decoded payloads and files dropped by the macro to `DIR/<input-sha256>/`, with a `manifest.json`. Files get neutral extensions (`.bin`, `.txt`), so nothing can run on a double-click. Existing files are never overwritten. |
@@ -408,9 +409,10 @@ For every file, `manifest.json` records the evidence ID, payload kind, detected 
 
 | Field | Content |
 |---|---|
-| `static_findings` | Template injection, external/embedded OLE objects, DDE, Equation Editor exploits, hyperlinks, hidden macro sheets and VBA stomping, each with kind, severity, location, target and evidence. |
+| `static_findings` | Template injection, external/embedded OLE objects, DDE, Equation Editor exploits, hyperlinks, hidden macro sheets, hidden VBA modules and VBA stomping, each with kind, severity, location, target and evidence. |
 | `macro_sheets` | Excel 4.0 macro sheets with visibility and every formula (cell, formula text, cached value). |
 | `document_properties` | Built-in and custom document properties and document variables. |
+| `storage_timestamps` | Creation and modification times of the OLE storages (root, VBA project, embedded objects), for the case timeline. |
 | `commands` | Recovered command lines and in-memory payload sinks, with receiver, source location, call chain and evidence IDs. |
 | `decryption` | For encrypted documents: the scheme, whether it was decrypted, and the password that worked (or why it could not be opened). |
 | `decoded_payloads` | Decoded PowerShell, scripts, shellcode buffers and certutil outputs. Each payload has its raw and normalized content, encoding chain, sha256, file type, profile facts (API hashes, stager configuration, PE imports) and provenance. |
