@@ -2,6 +2,7 @@ package extractor
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -162,8 +163,14 @@ func parseCFB(data []byte, lim *Limits) (*cfbReader, error) {
 	// The root entry's stream is the mini stream.
 	if len(r.entries) > 0 {
 		root := r.entries[0]
-		ms, err := r.readChain(root.startSector, root.size)
-		if err != nil {
+		// Office reads a mini stream whose declared size overruns the
+		// file (a trick to break strict parsers): keep what the chain holds.
+		size := root.size
+		if size > uint64(len(r.data)) {
+			size = uint64(len(r.data))
+		}
+		ms, err := r.readChain(root.startSector, size)
+		if err != nil && !(errors.Is(err, ErrTruncated) && len(ms) > 0) {
 			return nil, Wrap("cfb.ministream", err)
 		}
 		r.miniStream = ms
@@ -293,6 +300,21 @@ func (r *cfbReader) find(path string) *cfbEntry {
 	return nil
 }
 
+// readStreamFold reads a stream by path, falling back to a case-insensitive
+// match (how Office itself resolves stream names).
+func (r *cfbReader) readStreamFold(path string) ([]byte, error) {
+	b, err := r.readStream(path)
+	if err == nil {
+		return b, nil
+	}
+	for _, e := range r.entries {
+		if e.objType == 2 && strings.EqualFold(e.path, path) {
+			return r.readStream(e.path)
+		}
+	}
+	return nil, err
+}
+
 // storageCLSID returns the CLSID of the storage at path ("" is the root
 // storage), or all zeros when there is no such storage.
 func (r *cfbReader) storageCLSID(path string) [16]byte {
@@ -356,7 +378,9 @@ func (r *cfbReader) readChain(start uint32, size uint64) ([]byte, error) {
 		sector = r.nextSector(sector)
 	}
 	if len(out) < int(size) {
-		return nil, ErrTruncated
+		// The partial data is returned with the error for the callers
+		// that can use it (the mini stream).
+		return out, ErrTruncated
 	}
 	return out, nil
 }

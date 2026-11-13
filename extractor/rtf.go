@@ -253,6 +253,11 @@ func mtefExploit(native []byte) mtefFinding {
 	if len(native) >= 2 && binary.LittleEndian.Uint16(native) == 28 {
 		starts = append(starts, 28)
 	}
+	// An OLE1 native stream wraps the MTEF data in a 4-byte size; exploit
+	// builders also put a bogus size there, so only the version is checked.
+	if len(native) > 4 && native[4] == 3 {
+		starts = append(starts, 4)
+	}
 	starts = append(starts, 0)
 	for _, s := range starts {
 		if s >= len(native) || native[s] != 3 { // MTEF version 3
@@ -289,6 +294,40 @@ func mtefExploit(native []byte) mtefFinding {
 			}
 		}
 	}
+	return mtefFontScan(native)
+}
+
+// mtefFontScan is the fallback for exploit builders that randomize the
+// whole MTEF header (version byte included) and the first record, which
+// EQNEDT32.EXE does not validate: right after any of the header positions
+// it looks for a LINE record followed by a FONT record whose name runs past
+// the 40-byte buffer, or by a MATRIX record with oversized dimensions.
+func mtefFontScan(native []byte) mtefFinding {
+	for _, s := range []int{0, 4, 28} {
+		for i := s + 5; i < s+5+12 && i+3 < len(native); i++ {
+			if native[i-1]&0x0F != 0x01 {
+				continue
+			}
+			switch native[i] & 0x0F {
+			case 0x08:
+				name := native[i+3:]
+				if j := bytes.IndexByte(name, 0); j >= 0 {
+					name = name[:j]
+				}
+				if len(name) > 40 {
+					return mtefFinding{"MTEF FONT name of " + strconv.Itoa(len(name)) + " bytes overflows Equation Editor's 40-byte buffer (CVE-2017-11882 / CVE-2018-0802; randomized MTEF header)", name}
+				}
+			case 0x05:
+				if i+6 > len(native) {
+					continue
+				}
+				rows, cols := int(native[i+4]), int(native[i+5])
+				if rows > 64 || cols > 64 {
+					return mtefFinding{"MTEF MATRIX record declares " + strconv.Itoa(rows) + " rows x " + strconv.Itoa(cols) + " columns, overflowing Equation Editor's partition buffer (CVE-2018-0798; randomized MTEF header)", native[i+6:]}
+				}
+			}
+		}
+	}
 	return mtefFinding{}
 }
 
@@ -319,10 +358,28 @@ var knownObjectClasses = []struct{ prefix, severity, note string }{
 	{"acroexch", "medium", "embedded PDF document (Adobe Acrobat)"},
 }
 
+// ole1EmbeddedSig starts an OLE1 embedded object header (version 0x0501,
+// format 2); eqnHeaderSig starts the 28-byte EQNOLEFILEHDR of an "Equation
+// Native" stream (cbHdr 0x1C, version 0x00020000).
+var (
+	ole1EmbeddedSig = []byte{0x01, 0x05, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00}
+	eqnHeaderSig    = []byte{0x1C, 0x00, 0x00, 0x00, 0x02, 0x00}
+)
+
 // classifyRTFObject reports an embedded object and anything it reveals.
 func classifyRTFObject(o rtfObject, res *Result) {
 	loc := "rtf \\objdata at offset " + strconv.Itoa(o.offset)
 	info, ok := parseOLE1(o.data)
+	junk := 0
+	if !ok {
+		// Junk bytes before the OLE1 header are skipped by Word; find the
+		// header (version 0x0501, format 2 = embedded) after them.
+		if i := bytes.Index(o.data[:min(len(o.data), 64<<10)], ole1EmbeddedSig); i > 0 {
+			if alt, altOK := parseOLE1(o.data[i:]); altOK {
+				info, ok, junk = alt, true, i
+			}
+		}
+	}
 	class := info.class
 	if !ok {
 		// Exploit builders often corrupt the OLE1 header; fall back to the
@@ -363,6 +420,9 @@ func classifyRTFObject(o rtfObject, res *Result) {
 	} else {
 		e.Detail = "embedded OLE object of class " + class + " (" + strconv.Itoa(len(o.data)) + " bytes)"
 	}
+	if junk > 0 {
+		e.Detail += "; its OLE1 header follows " + strconv.Itoa(junk) + " junk bytes (anti-analysis padding Word skips)"
+	}
 	if rootClass != "" {
 		if strings.EqualFold(rootClass, class) {
 			e.Detail += " (storage CLSID " + rootCLSID + ")"
@@ -393,8 +453,46 @@ func classifyRTFObject(o rtfObject, res *Result) {
 			break
 		}
 	}
-	if strings.HasPrefix(lowClass, "equation.3") {
-		if x := mtefExploit(native); x.detail != "" {
+	isEquation := strings.HasPrefix(lowClass, "equation.3") || rootClass == "Equation.3"
+	// The MTEF data is the OLE1 native data itself, or a stream of the
+	// compound file it holds ("Equation Native", or an OLE1 native stream
+	// with a case-mangled name).
+	mtefSources := [][]byte{native}
+	if bytes.Contains(native, cfbMagic) {
+		e.Detail += "; contains an OLE compound file"
+		if inner != nil {
+			for _, s := range inner.listStreams() {
+				switch strings.ToLower(leafName(s)) {
+				case "equation native":
+					e.Severity = "high"
+					e.Detail += " with an \"Equation Native\" stream (Equation Editor exploit carrier)"
+					isEquation = true
+					fallthrough
+				case "\x01ole10native":
+					if b, err := inner.readStream(s); err == nil {
+						mtefSources = append(mtefSources, b)
+					}
+				}
+			}
+		}
+	}
+	if isEquation {
+		// A deliberately malformed compound file hides the Equation Native
+		// stream from strict parsers but not from Equation Editor: also try
+		// the MTEF data at each EQNOLEFILEHDR found in the raw bytes.
+		for from, n := 0, 0; n < 8; n++ {
+			i := bytes.Index(native[from:], eqnHeaderSig)
+			if i < 0 {
+				break
+			}
+			mtefSources = append(mtefSources, native[from+i:])
+			from += i + 1
+		}
+		for _, src := range mtefSources {
+			x := mtefExploit(src)
+			if x.detail == "" {
+				continue
+			}
 			e.Severity = "high"
 			e.Detail += "; " + x.detail
 			payload := x.payload
@@ -403,17 +501,7 @@ func classifyRTFObject(o rtfObject, res *Result) {
 			}
 			defer res.addExternal(ExternalRef{Kind: "equation_editor_exploit", Severity: "high", Location: loc,
 				Target: hexString(payload), Detail: x.detail + "; target is the bytes after the malformed record (hex; usually the first-stage shellcode)"})
-		}
-	}
-	if bytes.Contains(native, cfbMagic) {
-		e.Detail += "; contains an OLE compound file"
-		if inner != nil {
-			for _, s := range inner.listStreams() {
-				if strings.EqualFold(leafName(s), "Equation Native") {
-					e.Severity = "high"
-					e.Detail += " with an \"Equation Native\" stream (Equation Editor exploit carrier)"
-				}
-			}
+			break
 		}
 	}
 	res.addExternal(e)

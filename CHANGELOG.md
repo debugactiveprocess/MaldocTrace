@@ -5,6 +5,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **altChunk imports**: a `.docx` that imports a part through `w:altChunk` (relationship `aFChunk`; Word converts and merges RTF, HTML, MHT or another document on open) gets an `altchunk` finding and the imported part is analysed as an embedded file. Formbook and Remcos droppers hide RTF Equation Editor exploits this way inside an otherwise clean `.docx`.
+
+### Fixed
+
+- **Equation Editor exploits with randomized MTEF headers**: builders randomize the header (version byte included) and the first record, which EQNEDT32 does not check; a `LINE` record followed by an overflowing `FONT` (CVE-2017-11882 / CVE-2018-0802) or `MATRIX` (CVE-2018-0798) is now found without relying on the header, also when the MTEF data is wrapped in an OLE1 native stream (4-byte size).
+- OLE object streams are matched case-insensitively, as Office does: an Equation Editor object whose MTEF data sits in `olE10naTIVe` (with no `Equation Native` stream) is analysed instead of being read as an OLE Package.
+- RTF objects: junk bytes before the OLE1 header are skipped, the exploit check now runs on the `Equation Native` / OLE1 native streams of the compound file an object holds, and an `EQNOLEFILEHDR` is looked for in the raw data when that compound file is malformed.
+- A compound file whose mini stream size overruns the file is read with the data its chain holds, instead of being rejected.
+
+Measured on 48 recent MalwareBazaar maldocs (8 each of .doc, .docx, .xls, .xlsx, .rtf, .one): 35 to 44 detected as malicious; the remaining 4 carry no attack content (link spam, a plain document, binary data behind an empty RTF header, an external workbook link).
+
 ## [0.5.0] - 2026-11-13
 
 CVE-2026-21509 detection, a VBA p-code decompiler against VBA stomping, hidden modules, storage timestamps and PowerPoint 97-2003 storages.

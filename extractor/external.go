@@ -109,6 +109,7 @@ func scanOOXML(data []byte, lim *Limits, res *Result) {
 		}
 	}
 	checkQRLure(res.DocumentText, images, res)
+	scanAltChunks(parts, lim, res)
 	scanOOXMLEmbeddings(parts, lim, res)
 	readOOXMLProperties(read, res)
 	extractXLSX(read, res)
@@ -467,6 +468,51 @@ func rtfText(s string) string {
 }
 
 // relTarget resolves a relationship target against the part that owns it.
+// scanAltChunks handles Word's "alternative format import" parts (w:altChunk,
+// relationship type aFChunk): Word converts the target (RTF, HTML, MHT or
+// another document) and merges it into the document when it opens, with
+// the importer of that format. Droppers hide RTF exploits this way inside an
+// otherwise clean .docx, so each chunk is analysed as an embedded file.
+func scanAltChunks(parts map[string]*zip.File, lim *Limits, res *Result) {
+	n := 0
+	for name, f := range parts {
+		if !strings.HasSuffix(name, ".rels") {
+			continue
+		}
+		b, err := zipPart(f, lim)
+		if err != nil {
+			continue
+		}
+		var rels xmlRels
+		if xml.Unmarshal(b, &rels) != nil {
+			continue
+		}
+		// The relationships of word/_rels/document.xml.rels belong to
+		// word/document.xml.
+		owner := strings.TrimSuffix(strings.Replace(f.Name, "_rels/", "", 1), ".rels")
+		for _, r := range rels.Rels {
+			if !strings.HasSuffix(strings.ToLower(r.Type), "/afchunk") || strings.EqualFold(r.TargetMode, "External") {
+				continue
+			}
+			target := relTarget(owner, r.Target)
+			part := parts[strings.ToLower(target)]
+			if part == nil {
+				continue
+			}
+			data, err := zipPart(part, lim)
+			if err != nil {
+				res.addDiag("info", "ooxml", "altChunk "+target+": "+err.Error())
+				continue
+			}
+			res.addExternal(ExternalRef{Kind: "altchunk", Severity: "medium", Location: f.Name + "#" + r.ID, Target: target,
+				Detail: fmt.Sprintf("alternative format chunk (%d bytes) that Word imports into the document when it opens; it is analysed as an embedded file", len(data))})
+			res.addEmbedded(EmbeddedFile{Name: path.Base(target), Location: target, Data: data})
+			n++
+		}
+	}
+	res.addCheck(fmt.Sprintf("Word altChunk imports (%d)", n))
+}
+
 func relTarget(base, target string) string {
 	if strings.HasPrefix(target, "/") {
 		return strings.TrimPrefix(target, "/")
