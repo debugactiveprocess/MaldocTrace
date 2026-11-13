@@ -83,7 +83,7 @@ Requires Go 1.23+. Dependencies: `golang.org/x/text` and, for 7z archives, [`git
 Install a tagged release:
 
 ```bash
-go install github.com/debugactiveprocess/MaldocTrace/cmd/maldoctrace@v0.4.0
+go install github.com/debugactiveprocess/MaldocTrace/cmd/maldoctrace@v0.5.0
 ```
 
 Or build from a release tarball or a clone:

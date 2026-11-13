@@ -5,6 +5,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-13
+
+CVE-2026-21509 detection, a VBA p-code decompiler against VBA stomping, hidden modules, storage timestamps and PowerPoint 97-2003 storages.
+
+### Downloads
+
+| Platform | Archive |
+|---|---|
+| Windows x64 / ARM64 | `maldocTrace_0.5.0_windows_amd64.zip`, `maldocTrace_0.5.0_windows_arm64.zip` |
+| Linux x64 / ARM64 | `maldocTrace_0.5.0_linux_amd64.tar.gz`, `maldocTrace_0.5.0_linux_arm64.tar.gz` |
+| macOS Intel / Apple Silicon | `maldocTrace_0.5.0_darwin_amd64.tar.gz`, `maldocTrace_0.5.0_darwin_arm64.tar.gz` |
+
+You can verify downloads against `checksums.txt` (SHA-256). The binaries are static and have no dependencies. The macOS builds are not notarized, so remove the quarantine flag before running them: `xattr -d com.apple.quarantine maldocTrace`.
+
 ### Added
 
 - **VBA p-code decompiler** (`vba/pcode`): the compiled p-code of each module is disassembled (VBA6 and VBA7, 32- and 64-bit Office, including Mac byte order) and decompiled back to VBA source: procedures with their parameters, `Declare` statements with library and alias (also on 64-bit Office), variables and fixed/dynamic arrays, expressions, `With`, `For`/`For Each`, `If`/`ElseIf`, `Select Case`, loops, `On Error`, `#If` blocks, file I/O and `Debug.Print`.
@@ -234,7 +248,8 @@ You can verify downloads against `checksums.txt` (SHA-256). The binaries are sta
   - `--dump-payloads DIR` to write decoded payloads and dropped files with neutral extensions and a `manifest.json`.
 - **Robustness**: each pipeline stage recovers from panics and records them as diagnostics. The VBA pipeline and container parsers are fuzzed.
 
-[Unreleased]: https://github.com/debugactiveprocess/MaldocTrace/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/debugactiveprocess/MaldocTrace/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/debugactiveprocess/MaldocTrace/releases/tag/v0.5.0
 [0.4.0]: https://github.com/debugactiveprocess/MaldocTrace/releases/tag/v0.4.0
 [0.3.1]: https://github.com/debugactiveprocess/MaldocTrace/releases/tag/v0.3.1
 [0.3.0]: https://github.com/debugactiveprocess/MaldocTrace/releases/tag/v0.3.0
