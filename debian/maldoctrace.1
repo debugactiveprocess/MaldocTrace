@@ -77,6 +77,11 @@ Extra password to try on encrypted documents, before the built-in list
 (Excel's default password VelvetSweatshop and common passwords).
 May be repeated.
 .TP
+.B \-\-pcode
+Analyse every module from the VBA code rebuilt from its compiled p\-code
+instead of its source. Modules whose source does not match their p\-code
+(VBA stomping) are always analysed from the p\-code.
+.TP
 .BI \-\-fail\-on " level"
 Exit with status 3 when the verdict of an analyzed file is at least
 .I level

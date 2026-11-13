@@ -31,8 +31,14 @@ type Options struct {
 	// DocumentText supplies the document body when analysing raw VBA text
 	// (container inputs use the text extracted from the file).
 	DocumentText string
+	// PreferPCode analyses every module from the code rebuilt from its
+	// compiled p-code instead of its source (stomped modules always are).
+	PreferPCode bool
 	// depth is the nesting level of an embedded file being analysed.
 	depth int
+	// afterExtract lets tests alter the extraction result (e.g. wipe module
+	// sources to simulate VBA stomping) before the analysis stages.
+	afterExtract func(*extractor.Result)
 }
 
 func (o *Options) fill() {
@@ -89,6 +95,9 @@ func AnalyzeFromBytes(parent context.Context, data []byte, path string, opts Opt
 		r.Macros = "unknown"
 		r.Diagnostics = append(r.Diagnostics, report.Diagnostic{Severity: "warning", Stage: "extract", Message: extractErr.Error()})
 	}
+	if opts.afterExtract != nil {
+		opts.afterExtract(res)
+	}
 	r.Format = res.Format.String()
 	r.Encrypted = res.Encrypted
 	if d := res.Decryption; d != nil {
@@ -131,6 +140,7 @@ func AnalyzeFromBytes(parent context.Context, data []byte, path string, opts Opt
 		}
 	}
 	runStage(r, "static", func() { staticAnalysis(res, r) })
+	runStage(r, "pcode", func() { rebuildFromPCode(res, r, opts) })
 	runStage(r, "embedded", func() { processChildren(ctx, r, embeddedFiles(res), opts) })
 	if res.HasModules() || res.HasXLM() {
 		runStage(r, "emulation", func() { runEmulation(ctx, res, r, opts) })

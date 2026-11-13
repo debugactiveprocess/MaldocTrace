@@ -230,7 +230,11 @@ func RenderTextWith(r *Report, opt TextOptions) string {
 			if strings.HasPrefix(m.Type, "xlm") {
 				unit = "cells"
 			}
-			fmt.Fprintf(&b, "  %s  (%s, %d %s)\n", m.Name, m.Type, m.CodeLen, unit)
+			note := ""
+			if m.FromPCode {
+				note = "; analysed code rebuilt from p-code"
+			}
+			fmt.Fprintf(&b, "  %s  (%s, %d %s%s)\n", m.Name, m.Type, m.CodeLen, unit, note)
 		}
 	}
 	if len(r.Events) > 0 {

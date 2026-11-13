@@ -30,7 +30,7 @@ Documents with no macros at all are covered too. Remote template injection, DDE 
   - hyperlinks on pictures and cells, and QR-code lures;
   - embedded and linked OLE objects of `.xls` (`MBD` storages), `.doc` (`ObjectPool`) and OOXML (`embeddings/`) files: linked objects with URL monikers, OLE Packages, Equation Editor data, and the files they carry (PDF with its active-content markers and links, scripts, executables, archives). Embedded documents are analysed recursively and reported under `children` with their own verdict;
   - when nothing is found, the text report lists what was checked (also in the JSON `checks` field);
-  - **VBA stomping**: string literals compiled into the p-code but missing from the source mean the source shown is not the code Office runs. Those literals are reported and scanned for indicators.
+  - **VBA stomping**: Office runs a module's compiled p-code, not its source text, so stomping tools erase the source or replace it with a decoy. MaldocTrace decompiles the p-code back to VBA (VBA6 and VBA7, 32- and 64-bit, including `Declare` statements with their library and alias) and compares it with the source: string literals or procedures that exist only in the p-code mark the module as stomped, and the code rebuilt from the p-code is what gets emulated. `--pcode` analyses every module that way.
 - **Payload hiding places**: cell values (`Sheets("x").Range("A1")`, `Cells(r, c)`), document properties (`BuiltInDocumentProperties("Comments")`, custom properties), document variables (`ActiveDocument.Variables`, from `.docx` settings and the `StwUser` table of `.doc` files) and UserForm controls (`TextBox.Text`, `Label.Caption`) are all available to the emulated macro.
 - **Document body text**: extracted from Word 97-2003 (piece table) and `.docx`. Droppers often hide their payload in the document body and read it back through `ActiveDocument.Paragraphs(n).Range.Text`.
 - **VBA interpreter**: a lexer, parser and bounded interpreter covering the subset of VBA that malware relies on: procedures, `ByRef` parameters, named arguments, conditional compilation, loops, arrays and the string built-ins.
@@ -117,6 +117,7 @@ maldocTrace version
 | `--show-strings` | Text format only. Lists the reconstructed strings, deduplicated, with every module/procedure/line occurrence and the reconstruction method. |
 | `--dump-payloads DIR` | Writes decoded payloads and files dropped by the macro to `DIR/<input-sha256>/`, with a `manifest.json`. Files get neutral extensions (`.bin`, `.txt`), so nothing can run on a double-click. Existing files are never overwritten. |
 | `--password PW` | Extra password to try on encrypted documents, before the built-in list (`VelvetSweatshop` and common passwords). Repeat it to try several. |
+| `--pcode` | Analyse every module from the VBA rebuilt from its compiled p-code instead of its source (stomped modules always are). The JSON report includes the rebuilt code as `pcode_source`. |
 | `--input-format vba` | Analyze a plain-text VBA file. |
 | `--timeout`, `--max-steps` | Per-file time budget and interpreter step budget. |
 
@@ -469,6 +470,10 @@ Inputs that made the fuzzers fail are kept under `testdata/fuzz/` as permanent r
    ```
 
 The [release workflow](.github/workflows/release.yml) then runs the tests and builds static binaries for Windows, Linux and macOS (amd64/arm64), stamping each with the version from the tag. It publishes a GitHub Release with the archives, `checksums.txt` and that CHANGELOG section as notes. A tag without a matching CHANGELOG section fails instead of publishing an empty release.
+
+## Acknowledgements
+
+The VBA p-code format is undocumented. The opcode numbering, operand kinds and table offsets that `vba/pcode` relies on come from Vesselin Bontchev's research and his [pcodedmp](https://github.com/bontchev/pcodedmp) disassembler; `vba/pcode` is an independent implementation (and adds the decompilation back to VBA source, 64-bit `Declare` libraries and aliases, and array declarations).
 
 ## License
 

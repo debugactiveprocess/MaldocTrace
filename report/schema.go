@@ -104,6 +104,11 @@ type Module struct {
 	Codepage   uint16 `json:"codepage,omitempty"`
 	SourceFile string `json:"source_file,omitempty"`
 	CodeLen    int    `json:"code_len"`
+	// FromPCode is set when the code analysed was rebuilt from the
+	// module's compiled p-code instead of its (stomped) source, and
+	// PCodeSource holds that rebuilt code.
+	FromPCode   bool   `json:"from_pcode,omitempty"`
+	PCodeSource string `json:"pcode_source,omitempty"`
 }
 
 // EntryPoint is an auto-executable procedure.

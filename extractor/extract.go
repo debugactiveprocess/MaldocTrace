@@ -30,6 +30,9 @@ type Module struct {
 	// source in the module stream (empty when the module was never compiled).
 	PCode      []byte `json:"-"`
 	SourceFile string `json:"source_file,omitempty"`
+	// Project is the VBA project the module belongs to (its identifier
+	// table is needed to read the p-code).
+	Project *Project `json:"-"`
 }
 
 // Project is a VBA project found in a container.
@@ -40,6 +43,9 @@ type Project struct {
 	Codepage   uint16 `json:"codepage"`
 	SysKind    uint32 `json:"sys_kind"`
 	LCID       uint32 `json:"lcid"`
+	// VBAProject is the raw _VBA_PROJECT stream (version and identifier
+	// table of the compiled p-code); nil when it is missing.
+	VBAProject []byte `json:"-"`
 }
 
 // Result is the outcome of extraction. Modules and Projects are populated even
@@ -329,6 +335,9 @@ func extractVBAProject(ctx context.Context, cfb *cfbReader, vbaRoot, sourceFile 
 		SysKind:    proj.sysKind,
 		LCID:       proj.lcid,
 	}
+	if b, err := cfb.readStream(vbaRoot + "VBA/_VBA_PROJECT"); err == nil {
+		p.VBAProject = b
+	}
 	res.Projects = append(res.Projects, p)
 
 	for i := range proj.modules {
@@ -351,6 +360,7 @@ func extractVBAProject(ctx context.Context, cfb *cfbReader, vbaRoot, sourceFile 
 			Code:       code,
 			PCode:      pcode,
 			SourceFile: sourceFile,
+			Project:    p,
 		}
 		m.FileName = m.Name + moduleExt(rm.typ)
 		res.Modules = append(res.Modules, m)
@@ -391,6 +401,13 @@ func readModuleSource(cfb *cfbReader, vbaRoot string, rm *rawModule, cp uint16, 
 	}
 	codeRaw, err := decompressOVBA(streamBytes[off:], lim.MaxDecompressed)
 	if err != nil {
+		if off > 0 {
+			// The source was destroyed (a VBA stomping technique) but the
+			// compiled p-code before it is intact: keep the module so the
+			// code can be rebuilt from the p-code.
+			res.addDiag("warning", "extract", fmt.Sprintf("module %q source is unreadable (%v); only its p-code is available", rm.name, err))
+			return nil, "", streamBytes[:off], true
+		}
 		res.addDiag("warning", "extract", fmt.Sprintf("module %q decompression failed: %v", rm.name, err))
 		return nil, "", nil, false
 	}

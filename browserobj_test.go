@@ -54,7 +54,7 @@ func browserDocx(t *testing.T, obj []byte) []byte {
 // in the wild), or carries a CompObj that pretends to be something else.
 func TestShellExplorerObject(t *testing.T) {
 	for name, compObj := range map[string][]byte{
-		"clsid only":     nil,
+		"clsid only":    nil,
 		"forged progid": compObjT("Microsoft Word Document", "Word.Document.8"),
 	} {
 		t.Run(name, func(t *testing.T) {

@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- **VBA p-code decompiler** (`vba/pcode`): the compiled p-code of each module is disassembled (VBA6 and VBA7, 32- and 64-bit Office, including Mac byte order) and decompiled back to VBA source: procedures with their parameters, `Declare` statements with library and alias (also on 64-bit Office), variables and fixed/dynamic arrays, expressions, `With`, `For`/`For Each`, `If`/`ElseIf`, `Select Case`, loops, `On Error`, `#If` blocks, file I/O and `Debug.Print`.
+  - **VBA stomping**: a module whose p-code contains string literals or procedures that its source lacks, or whose source is empty or unreadable while the p-code is intact, is reported as stomped and analysed from the code rebuilt from its p-code (what Office actually runs). Modules whose compressed source is destroyed are now kept when their p-code is readable.
+  - `--pcode` analyses every module from its p-code. The JSON report marks those modules with `from_pcode` and includes the rebuilt code as `pcode_source`.
+  - Validation on the sample set: analysing only the p-code gives the same commands, indicators and verdict as the source on 8 of 9 VBA samples (the ninth differs only in the text of one static indicator), and simulated stomping (source wiped or replaced by a decoy) of 7 samples recovers everything the intact documents yield.
+
 - **CVE-2026-21509 (`Shell.Explorer.1` objects)**: embedded OLE objects of the legacy Internet Explorer browser classes (`Shell.Explorer.1`, `Shell.Explorer.2`) are reported, and the URL they navigate to when the document opens is decoded from their `CONTENTS` data and reported as a high-severity `browser_object_url` finding (an attack on its own in the verdict) and an indicator. The detail flags `.lnk` and other directly runnable targets, and UNC/WebDAV paths. Works in OOXML (`oleObject*.bin`), Word `ObjectPool`, Excel `MBD` storages and RTF `\objdata`.
 - OLE objects are also classified by the **CLSID of their storage**, the class Office actually instantiates: objects without a `\x01CompObj` stream (the shape of the CVE-2026-21509 samples), with a forged ProgID, or with an empty or decoy RTF class name are still recognised (`Shell.Explorer.1/2`, `htmlfile`, `Equation.3`, `Package`, `OLE2Link`).
 
