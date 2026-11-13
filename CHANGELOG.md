@@ -12,7 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 
 - **Equation Editor exploits with randomized MTEF headers**: builders randomize the header (version byte included) and the first record, which EQNEDT32 does not check; a `LINE` record followed by an overflowing `FONT` (CVE-2017-11882 / CVE-2018-0802) or `MATRIX` (CVE-2018-0798) is now found without relying on the header, also when the MTEF data is wrapped in an OLE1 native stream (4-byte size).
-- OLE object streams are matched case-insensitively, as Office does: an Equation Editor object whose MTEF data sits in `olE10naTIVe` (with no `Equation Native` stream) is analysed instead of being read as an OLE Package.
+- OLE object streams are matched case-insensitively, as Office does: an Equation Editor object whose MTEF data sits in `\x01olE10naTIVe` (with no `Equation Native` stream) is analysed instead of being read as an OLE Package.
 - RTF objects: junk bytes before the OLE1 header are skipped, the exploit check now runs on the `Equation Native` / OLE1 native streams of the compound file an object holds, and an `EQNOLEFILEHDR` is looked for in the raw data when that compound file is malformed.
 - A compound file whose mini stream size overruns the file is read with the data its chain holds, instead of being rejected.
 
