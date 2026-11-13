@@ -26,6 +26,9 @@ type cfbEntry struct {
 	startSector uint32
 	size        uint64
 	path        string
+	// clsid is the class of a storage (for an OLE object, the class Office
+	// instantiates); all zero for streams and unset storages.
+	clsid [16]byte
 }
 
 // cfbReader is a parsed CFB (OLE2 compound file) container.
@@ -229,7 +232,7 @@ func (r *cfbReader) readDirectory(lim *Limits) error {
 			child := int32(binary.LittleEndian.Uint32(eb[76:]))
 			start := binary.LittleEndian.Uint32(eb[116:])
 			size := binary.LittleEndian.Uint64(eb[120:])
-			r.entries = append(r.entries, &cfbEntry{
+			ent := &cfbEntry{
 				name:        name,
 				objType:     objType,
 				left:        left,
@@ -237,7 +240,9 @@ func (r *cfbReader) readDirectory(lim *Limits) error {
 				child:       child,
 				startSector: start,
 				size:        size,
-			})
+			}
+			copy(ent.clsid[:], eb[80:96])
+			r.entries = append(r.entries, ent)
 			if len(r.entries) > int(lim.MaxContainerEntries) {
 				return Wrap("cfb", ErrLimitExceeded)
 			}
@@ -282,6 +287,21 @@ func (r *cfbReader) find(path string) *cfbEntry {
 		}
 	}
 	return nil
+}
+
+// storageCLSID returns the CLSID of the storage at path ("" is the root
+// storage), or all zeros when there is no such storage.
+func (r *cfbReader) storageCLSID(path string) [16]byte {
+	if path == "" {
+		if len(r.entries) > 0 {
+			return r.entries[0].clsid
+		}
+		return [16]byte{}
+	}
+	if e := r.find(path); e != nil && e.objType != 2 {
+		return e.clsid
+	}
+	return [16]byte{}
 }
 
 // storageByLeafName returns storage entries whose leaf component equals name.

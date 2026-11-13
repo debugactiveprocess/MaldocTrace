@@ -23,6 +23,7 @@ Documents with no macros at all are covered too. Remote template injection, DDE 
 - **Static findings** (no emulation needed):
   - remote template injection (`attachedTemplate`, RTF `\*\template`, the attached template of Word 97-2003 `.doc` files);
   - external OLE objects, including MHTML (CVE-2021-40444) and `ms-msdt` (Follina) monikers;
+  - embedded `Shell.Explorer.1` browser objects (CVE-2026-21509) and the URL they open, with OLE objects identified by their storage CLSID even when `CompObj` is missing or forged;
   - DDE/DDEAUTO, `INCLUDEPICTURE`, `INCLUDETEXT` and `LINK` fields (including `QUOTE`-encoded ones) in `.docx`, RTF and every story of `.doc` files (body, headers, footnotes, comments, text boxes), and Excel DDE formulas and links;
   - embedded and linked OLE objects of `.doc` files (`ObjectPool`): class and ProgID, OLE Packages (label, original and temp path), URL and file monikers of linked objects (CVE-2017-0199 pattern) and Equation Editor exploits;
   - RTF embedded objects decoded the way Word reads them (obfuscated `\objdata`, corrupted OLE1 headers), with Equation Editor exploit detection: the MTEF FONT overflow (CVE-2017-11882 / CVE-2018-0802) and the MATRIX overflow (CVE-2018-0798), plus extraction of the bytes that follow;

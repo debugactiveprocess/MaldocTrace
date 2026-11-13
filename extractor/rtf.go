@@ -310,6 +310,7 @@ var knownObjectClasses = []struct{ prefix, severity, note string }{
 	{"word.document", "medium", "embedded Word document (may carry macros)"},
 	{"excel.sheet", "medium", "embedded Excel workbook (may carry macros)"},
 	{"forms.", "medium", "embedded ActiveX/Forms control"},
+	{"shell.explorer.1", "high", "Shell.Explorer.1 (legacy Internet Explorer browser object left without a kill bit; it loads a URL when the document opens, CVE-2026-21509)"},
 	{"shell.explorer", "high", "Shell.Explorer (embedded browser) object"},
 	{"microsoft office word", "medium", "embedded Word document (may carry macros)"},
 	{"microsoft word", "medium", "embedded Word document (may carry macros)"},
@@ -334,6 +335,26 @@ func classifyRTFObject(o rtfObject, res *Result) {
 			}
 		}
 	}
+	native := info.native
+	if native == nil {
+		native = o.data
+	}
+	// The native data of an embedded object is usually an OLE compound
+	// file whose root storage CLSID is the class Office instantiates; it
+	// identifies the object even when the OLE1 class name is missing,
+	// corrupted or forged.
+	var inner *cfbReader
+	rootClass, rootCLSID := "", ""
+	if i := bytes.Index(native, cfbMagic); i >= 0 {
+		if cfb, err := parseCFB(native[i:], &Limits{MaxContainerEntries: 4096, MaxStreams: 4096}); err == nil {
+			inner = cfb
+			rootCLSID = formatCLSID(cfb.storageCLSID(""))
+			rootClass = oleClassCLSIDs[rootCLSID]
+		}
+	}
+	if class == "" {
+		class = rootClass
+	}
 	e := ExternalRef{Kind: "embedded_ole", Severity: "medium", Location: loc, Target: class,
 		Detail: "embedded OLE object (" + strconv.Itoa(len(o.data)) + " bytes)"}
 	if class == "" {
@@ -342,11 +363,18 @@ func classifyRTFObject(o rtfObject, res *Result) {
 	} else {
 		e.Detail = "embedded OLE object of class " + class + " (" + strconv.Itoa(len(o.data)) + " bytes)"
 	}
+	if rootClass != "" {
+		if strings.EqualFold(rootClass, class) {
+			e.Detail += " (storage CLSID " + rootCLSID + ")"
+		} else {
+			e.Detail += "; its storage CLSID " + rootCLSID + " is " + rootClass + ", the class Office actually instantiates"
+		}
+	}
 	lowClass := strings.ToLower(class)
-	for _, k := range knownObjectClasses {
-		if strings.HasPrefix(lowClass, k.prefix) {
-			e.Severity = k.severity
-			e.Detail += "; " + k.note
+	for _, name := range []string{rootClass, class} {
+		if sev, note, ok := classNote(name); ok {
+			e.Severity = sev
+			e.Detail += "; " + note
 			break
 		}
 	}
@@ -355,9 +383,15 @@ func classifyRTFObject(o rtfObject, res *Result) {
 		e.Detail = "linked OLE object of class " + class + " loaded from " + info.topic
 		e.Target = info.topic
 	}
-	native := info.native
-	if native == nil {
-		native = o.data
+	var browserURLs map[string]bool
+	for _, name := range []string{rootClass, class} {
+		if isBrowserClass(name) {
+			browserURLs = reportBrowserURLs(name, native, loc, res)
+			if len(browserURLs) == 0 {
+				e.Detail += "; no navigation URL could be decoded from its data"
+			}
+			break
+		}
 	}
 	if strings.HasPrefix(lowClass, "equation.3") {
 		if x := mtefExploit(native); x.detail != "" {
@@ -371,10 +405,10 @@ func classifyRTFObject(o rtfObject, res *Result) {
 				Target: hexString(payload), Detail: x.detail + "; target is the bytes after the malformed record (hex; usually the first-stage shellcode)"})
 		}
 	}
-	if i := bytes.Index(native, cfbMagic); i >= 0 {
+	if bytes.Contains(native, cfbMagic) {
 		e.Detail += "; contains an OLE compound file"
-		if cfb, err := parseCFB(native[i:], &Limits{MaxContainerEntries: 4096, MaxStreams: 4096}); err == nil {
-			for _, s := range cfb.listStreams() {
+		if inner != nil {
+			for _, s := range inner.listStreams() {
 				if strings.EqualFold(leafName(s), "Equation Native") {
 					e.Severity = "high"
 					e.Detail += " with an \"Equation Native\" stream (Equation Editor exploit carrier)"
@@ -384,6 +418,9 @@ func classifyRTFObject(o rtfObject, res *Result) {
 	}
 	res.addExternal(e)
 	for _, u := range append(utf16URLs(o.data), urlText.FindAllString(string(o.data), 16)...) {
+		if browserURLs[u] {
+			continue
+		}
 		res.addExternal(ExternalRef{Kind: "embedded_url", Severity: "medium", Location: loc, Target: u, Detail: "URL inside the embedded object"})
 	}
 }

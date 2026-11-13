@@ -177,6 +177,15 @@ func build(exact bool, streams []Stream) []byte {
 	return append(hdr, body...)
 }
 
+// SetRootCLSID returns a copy of a file made by Build or BuildExact whose
+// root storage carries the given CLSID (in its on-disk, mixed-endian layout).
+func SetRootCLSID(file []byte, clsid [16]byte) []byte {
+	out := append([]byte(nil), file...)
+	dirStart := int(binary.LittleEndian.Uint32(out[0x30:]))
+	copy(out[(dirStart+1)*sector+0x50:], clsid[:])
+	return out
+}
+
 func boolInt(b bool) int {
 	if b {
 		return 1

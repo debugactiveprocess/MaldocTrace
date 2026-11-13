@@ -5,6 +5,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **CVE-2026-21509 (`Shell.Explorer.1` objects)**: embedded OLE objects of the legacy Internet Explorer browser classes (`Shell.Explorer.1`, `Shell.Explorer.2`) are reported, and the URL they navigate to when the document opens is decoded from their `CONTENTS` data and reported as a high-severity `browser_object_url` finding (an attack on its own in the verdict) and an indicator. The detail flags `.lnk` and other directly runnable targets, and UNC/WebDAV paths. Works in OOXML (`oleObject*.bin`), Word `ObjectPool`, Excel `MBD` storages and RTF `\objdata`.
+- OLE objects are also classified by the **CLSID of their storage**, the class Office actually instantiates: objects without a `\x01CompObj` stream (the shape of the CVE-2026-21509 samples), with a forged ProgID, or with an empty or decoy RTF class name are still recognised (`Shell.Explorer.1/2`, `htmlfile`, `Equation.3`, `Package`, `OLE2Link`).
+
+### Fixed
+
+- UNC paths with a WebDAV/port suffix (`\\host@SSL\DavWWWRoot\...`) are now extracted as indicators.
+
 ## [0.4.0] - 2026-11-12
 
 Verdicts, embedded objects, archives, email, OneNote and more document formats.
