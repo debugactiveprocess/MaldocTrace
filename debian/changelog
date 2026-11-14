@@ -1,3 +1,12 @@
+maldoctrace (0.5.1-0kali1) kali-dev; urgency=medium
+
+  * New upstream release: Word altChunk imports are analysed, and Equation
+    Editor exploits (CVE-2017-11882, CVE-2018-0798) are found behind
+    randomized MTEF headers, case-mangled OLE streams and junk-padded RTF
+    objects. See CHANGELOG.md.
+
+ -- Ialle Teixeira <49375302+debugactiveprocess@users.noreply.github.com>  Sat, 14 Nov 2026 12:00:00 -0300
+
 maldoctrace (0.5.0-0kali1) kali-dev; urgency=medium
 
   * New upstream release: detection of CVE-2026-21509 (Shell.Explorer.1

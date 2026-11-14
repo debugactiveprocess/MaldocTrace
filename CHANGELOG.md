@@ -5,6 +5,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-11-14
+
+Coverage fixes from 48 recent MalwareBazaar maldocs: Word altChunk imports and Equation Editor exploits behind randomized MTEF headers and mangled OLE streams.
+
+### Downloads
+
+| Platform | Archive |
+|---|---|
+| Windows x64 / ARM64 | `maldocTrace_0.5.1_windows_amd64.zip`, `maldocTrace_0.5.1_windows_arm64.zip` |
+| Linux x64 / ARM64 | `maldocTrace_0.5.1_linux_amd64.tar.gz`, `maldocTrace_0.5.1_linux_arm64.tar.gz` |
+| macOS Intel / Apple Silicon | `maldocTrace_0.5.1_darwin_amd64.tar.gz`, `maldocTrace_0.5.1_darwin_arm64.tar.gz` |
+
+You can verify downloads against `checksums.txt` (SHA-256). The binaries are static and have no dependencies. The macOS builds are not notarized, so remove the quarantine flag before running them: `xattr -d com.apple.quarantine maldocTrace`.
+
 ### Added
 
 - **altChunk imports**: a `.docx` that imports a part through `w:altChunk` (relationship `aFChunk`; Word converts and merges RTF, HTML, MHT or another document on open) gets an `altchunk` finding and the imported part is analysed as an embedded file. Formbook and Remcos droppers hide RTF Equation Editor exploits this way inside an otherwise clean `.docx`.
@@ -261,7 +275,8 @@ You can verify downloads against `checksums.txt` (SHA-256). The binaries are sta
   - `--dump-payloads DIR` to write decoded payloads and dropped files with neutral extensions and a `manifest.json`.
 - **Robustness**: each pipeline stage recovers from panics and records them as diagnostics. The VBA pipeline and container parsers are fuzzed.
 
-[Unreleased]: https://github.com/debugactiveprocess/MaldocTrace/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/debugactiveprocess/MaldocTrace/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/debugactiveprocess/MaldocTrace/releases/tag/v0.5.1
 [0.5.0]: https://github.com/debugactiveprocess/MaldocTrace/releases/tag/v0.5.0
 [0.4.0]: https://github.com/debugactiveprocess/MaldocTrace/releases/tag/v0.4.0
 [0.3.1]: https://github.com/debugactiveprocess/MaldocTrace/releases/tag/v0.3.1
