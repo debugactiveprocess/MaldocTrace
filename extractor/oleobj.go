@@ -379,8 +379,8 @@ func oleStoragePrefixes(cfb *cfbReader, root string) []string {
 	seen := map[string]bool{}
 	var out []string
 	for _, s := range cfb.listStreams() {
-		switch leafName(s) {
-		case nameOle, nameCompObj, nameOle10Nat, nameEquation, nameObjInfo:
+		switch strings.ToLower(leafName(s)) {
+		case "\x01ole", "\x01compobj", "\x01ole10native", "equation native", "\x03objinfo":
 		default:
 			continue
 		}
@@ -402,30 +402,43 @@ func oleStoragePrefixes(cfb *cfbReader, root string) []string {
 func readOLEObject(cfb *cfbReader, prefix, location string) *OLEObject {
 	o := &OLEObject{Location: location}
 	o.setCLSID(cfb.storageCLSID(strings.TrimSuffix(prefix, "/")))
-	if b, err := cfb.readStream(prefix + nameCompObj); err == nil {
+	// Office matches stream names case-insensitively, and exploit builders
+	// rely on that ("\x01ole10NatIVe") to dodge exact-name checks.
+	read := func(name string) ([]byte, error) { return cfb.readStreamFold(prefix + name) }
+	if b, err := read(nameCompObj); err == nil {
 		o.UserType, o.ProgID = parseCompObj(b)
 	}
-	if b, err := cfb.readStream(prefix + nameOle); err == nil {
+	if b, err := read(nameOle); err == nil {
 		o.Linked, o.Monikers = parseOLEStream(b)
 	}
-	if b, err := cfb.readStream(prefix + nameObjInfo); err == nil {
+	if b, err := read(nameObjInfo); err == nil {
 		link, manual := odtFlags(b)
 		if link {
 			o.Linked = true
 			o.AutoUpdate = !manual
 		}
 	}
-	if b, err := cfb.readStream(prefix + nameOle10Nat); err == nil {
-		o.Package = parseOle10Native(b)
-	}
-	if b, err := cfb.readStream(prefix + nameEquation); err == nil {
+	equation := o.CLSIDClass == "Equation.3" || strings.HasPrefix(strings.ToLower(o.ProgID), "equation")
+	if b, err := read(nameEquation); err == nil {
 		o.Equation = mtefExploit(b)
-		if o.ProgID == "" && o.UserType == "" {
-			o.ProgID = "Equation.3"
+		equation = true
+	}
+	if b, err := read(nameOle10Nat); err == nil {
+		if equation {
+			// Equation Editor also reads its MTEF data from an OLE1 native
+			// stream (a 4-byte size, then MTEF): it is not a Package.
+			if o.Equation.detail == "" {
+				o.Equation = mtefExploit(b)
+			}
+		} else {
+			o.Package = parseOle10Native(b)
 		}
 	}
+	if equation && o.ProgID == "" && o.UserType == "" && o.CLSIDClass == "" {
+		o.ProgID = "Equation.3"
+	}
 	for _, name := range []string{"Package", "CONTENTS", "Contents"} {
-		if b, err := cfb.readStream(prefix + name); err == nil && len(b) > 0 {
+		if b, err := read(name); err == nil && len(b) > 0 {
 			o.Contents, o.ContentsStream = b, name
 			break
 		}
