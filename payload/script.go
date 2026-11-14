@@ -32,7 +32,14 @@ func ClassifyFile(name string, b []byte) (kind string, script bool) {
 	case bytes.HasPrefix(b, []byte("%PDF")):
 		return "PDF document", false
 	case bytes.HasPrefix(b, []byte{0xD0, 0xCF, 0x11, 0xE0}):
+		if isMSI(b) {
+			return MSIKind, false
+		}
 		return "OLE/CFB compound file", false
+	case IsISO(b):
+		return ISOKind, false
+	case bytes.HasPrefix(b, []byte("ITSF")):
+		return CHMKind, false
 	case bytes.HasPrefix(b, []byte("PK\x03\x04")):
 		t, _ := describeZip(b)
 		return t, false
@@ -49,7 +56,9 @@ func ClassifyFile(name string, b []byte) (kind string, script bool) {
 		return "Windows Script File (WSF) script", true
 	case ext == ".ps1" || ext == ".psm1":
 		return "PowerShell script", true
-	case ext == ".bat" || ext == ".cmd" || strings.HasPrefix(strings.TrimSpace(low), "@echo off"):
+	// A junk first line ("GIFACTORIAL ... >nul 2>&1") hides the batch
+	// header from classifiers that only look at the first bytes.
+	case ext == ".bat" || ext == ".cmd" || strings.Contains(low, "@echo off"):
 		return "batch script", true
 	case ext == ".vbs" || ext == ".vbe":
 		return "VBScript script", true

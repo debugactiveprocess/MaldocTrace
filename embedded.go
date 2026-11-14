@@ -47,9 +47,7 @@ func processChildren(ctx context.Context, r *report.Report, files []childFile, o
 			Discovery: f.source, Raw: f.data}
 		kind, script := payload.ClassifyFile(f.name, f.data)
 		a.FileType, a.Facts = payload.DescribeBinary(f.data)
-		if a.FileType == "" {
-			a.FileType = kind
-		} else if script {
+		if a.FileType == "" || script || kind == payload.MSIKind || kind == payload.ISOKind || kind == payload.CHMKind {
 			a.FileType = kind
 		}
 		if f.class != "" {
@@ -65,15 +63,37 @@ func processChildren(ctx context.Context, r *report.Report, files []childFile, o
 				Detail: fmt.Sprintf("%s carried by the document (%d bytes); it runs when opened", kind, len(f.data))})
 			text := scriptText(f.data)
 			scanEvidenceOpts(r, text, "static", id, src, true)
+			switch kind {
+			case "batch script":
+				// The commands are assembled from "set" fragments: recover
+				// them from the expanded script, as cmd.exe runs it.
+				if deob := payload.DeobfuscateBatch(text); deob != "" {
+					r.Decoded = append(r.Decoded, report.DecodedStr{Value: cut(deob, 8192), Kind: "static", Method: "batch variable expansion", Module: f.location})
+					scanEvidenceOpts(r, deob, "decoded", id, src, true)
+					text = deob
+				}
+			case "VBScript script", "VBScript/JScript script":
+				emulateScript(ctx, r, f, kind, text, opts)
+			}
 			recoverScriptCommands(r, text, id, src)
-		case kind == "Windows shortcut (LNK)" || strings.HasPrefix(a.FileType, "PE"):
+		case kind == payload.ISOKind:
+			addFinding(r, report.StaticFinding{Kind: "embedded_disk_image", Severity: "high", Location: f.location, Target: f.name,
+				Detail: "ISO disk image carried by the document; Windows mounts it on a double click and its files (often a shortcut and a DLL) are analysed below"})
+		case kind == "Windows shortcut (LNK)" || kind == payload.MSIKind || kind == payload.CHMKind || strings.HasPrefix(a.FileType, "PE"):
+			detail := a.FileType + " carried by the document"
+			if kind == payload.MSIKind {
+				detail = "Windows Installer package carried by the document; installing it runs its custom actions (scripts, DLLs, executables)"
+			}
+			if kind == payload.CHMKind {
+				detail = "Compiled HTML Help file carried by the document; hh.exe renders its pages and runs their script and ActiveX shortcut objects"
+			}
 			addFinding(r, report.StaticFinding{Kind: "embedded_executable", Severity: "high", Location: f.location, Target: f.name,
-				Detail: a.FileType + " carried by the document"})
+				Detail: detail})
 			for _, s := range payload.PrintableStrings(f.data, 6, 4096) {
 				scanEvidence(r, s, "static", "artifact:"+a.SHA256, src)
 			}
 		}
-		if f.noRecurse || !recursable(f.data) {
+		if f.noRecurse || kind == payload.MSIKind || !recursable(f.data) {
 			continue
 		}
 		if opts.depth >= opts.Limits.MaxNestedDepth {

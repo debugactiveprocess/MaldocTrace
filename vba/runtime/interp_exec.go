@@ -18,11 +18,35 @@ func (rt *Interp) exec(s ast.Stmt) {
 	case *ast.CallStmt:
 		rt.eval(st.CallExpr)
 	case *ast.Dim:
-		rt.execDim(st)
+		for d := st; d != nil; d = d.Next {
+			rt.execDim(d)
+		}
 	case *ast.Const:
 		rt.execConst(st)
 	case *ast.If:
 		for _, b := range st.Branches {
+			if rt.speculateUnknown {
+				// Speculative mode: a branch whose condition cannot be
+				// resolved (the size of a downloaded file, a registry
+				// value) is explored, and its events are marked
+				// speculative, instead of being skipped.
+				if v := rt.eval(b.Cond); v.IsUnknown() {
+					rt.note("conditional expression unresolved, branch explored speculatively: " + v.Unknown)
+					prev := rt.speculate
+					rt.speculate = true
+					for _, x := range b.Body {
+						rt.exec(x)
+					}
+					rt.speculate = prev
+					return
+				} else if v.Truthy() {
+					for _, x := range b.Body {
+						rt.exec(x)
+					}
+					return
+				}
+				continue
+			}
 			if rt.condTruth(b.Cond) {
 				for _, x := range b.Body {
 					rt.exec(x)
@@ -116,14 +140,25 @@ func (rt *Interp) execDim(d *ast.Dim) {
 		return
 	}
 	if d.Init != nil {
-		rt.setVar(name, rt.eval(d.Init))
+		rt.declareVar(name, rt.eval(d.Init))
 	} else {
-		rt.setVar(name, VEmpty)
+		rt.declareVar(name, VEmpty)
 	}
 }
 
+// declareVar creates a variable in the current scope: a Dim inside a
+// procedure shadows a module-level variable of the same name.
+func (rt *Interp) declareVar(name string, v Value) {
+	name = strings.ToLower(name)
+	if len(rt.scopes) > 0 {
+		rt.scopes[len(rt.scopes)-1][name] = v
+		return
+	}
+	rt.globals[name] = v
+}
+
 func (rt *Interp) execConst(c *ast.Const) {
-	rt.setVar(strings.ToLower(c.Name), rt.eval(c.Val))
+	rt.declareVar(c.Name, rt.eval(c.Val))
 }
 
 func (rt *Interp) execFor(f *ast.For) {

@@ -134,6 +134,11 @@ Excel opens text spreadsheets without the protections of a workbook. SYLK files 
 
 OneNote sections (`.one`) are a common dropper since Office blocked internet macros: a lure picture sits over an embedded HTA, batch file, script, shortcut or executable. MaldocTrace extracts every embedded file, classifies it by content, reports scripts (with the commands and indicators in them) and executables, and analyses embedded documents as children.
 
+- **VBScript** files are emulated: top-level statements run, `WScript` is available, and `Execute`/`ExecuteGlobal` run the code they build. A script that writes the next stage to disk and launches it (`wscript //E:vbscript file.html`) is followed stage by stage, each as a child report. A branch that depends on run-time state, such as the size of a downloaded file, is explored speculatively and its events are marked `speculative`.
+- **Batch** files are deobfuscated the way `cmd.exe` expands them (`set` fragments, `%VAR%`, `%VAR:~start,len%`, `%VAR:old=new%`, `!VAR!`, `^` escapes), even when a junk line precedes `@echo off`.
+- **ISO images** are opened and their files analysed. **MSI packages** (including version 4 compound files with 4096-byte sectors) and **CHM help files** are reported as executable content.
+- **Password-protected sections** (encrypted embedded data of no known type) are reported as suspicious, since their content cannot be analysed.
+
 ### Emails
 
 `.eml` and Outlook `.msg` files are analysed as containers: the report shows the sender, recipient, subject, date and attachment names, extracts URLs from the bodies as indicators, and analyses every attachment (documents, archives, scripts, attached messages) as a child report.

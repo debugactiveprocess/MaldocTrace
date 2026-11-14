@@ -17,7 +17,7 @@ import (
 // and described, and supported documents are analysed as children.
 func analyzeContainer(ctx context.Context, kind string, data []byte, r *report.Report, opts Options) {
 	switch kind {
-	case "zip", "7z":
+	case "zip", "7z", "iso":
 		analyzeArchive(ctx, kind, data, r, opts)
 	case "eml", "msg":
 		analyzeEmail(ctx, kind, data, r, opts)
@@ -73,7 +73,7 @@ func analyzeEmail(ctx context.Context, kind string, data []byte, r *report.Repor
 var oneNoteExt = []struct{ prefix, ext string }{
 	{"HTML application", ".hta"}, {"Windows Script File", ".wsf"}, {"PowerShell", ".ps1"}, {"batch", ".bat"},
 	{"VBScript", ".vbs"}, {"JScript", ".js"}, {"HTML", ".html"}, {"Windows shortcut", ".lnk"}, {"PE", ".exe"},
-	{"PDF", ".pdf"}, {"OLE/CFB", ".doc"}, {"OOXML", ".docx"}, {"ZIP", ".zip"}, {"Java archive", ".jar"}, {"RTF", ".rtf"},
+	{"PDF", ".pdf"}, {"Windows Installer", ".msi"}, {"ISO 9660", ".iso"}, {"OLE/CFB", ".doc"}, {"OOXML", ".docx"}, {"ZIP", ".zip"}, {"Java archive", ".jar"}, {"RTF", ".rtf"},
 }
 
 // analyzeOneNote lists the files embedded in a OneNote section and analyses
@@ -85,10 +85,14 @@ func analyzeOneNote(ctx context.Context, data []byte, r *report.Report, opts Opt
 		r.Diagnostics = append(r.Diagnostics, report.Diagnostic{Severity: d.Severity, Stage: d.Stage, Message: d.Message})
 	}
 	var children []childFile
+	opaque := 0
 	for i, f := range files {
 		kind, _ := payload.ClassifyFile("", f.Data)
 		if kind == "" && isImage(f.Data) {
 			continue // the lure picture
+		}
+		if kind == "" && len(f.Data) >= 4096 && payload.Entropy(f.Data) > 7.9 {
+			opaque++
 		}
 		name := fmt.Sprintf("embedded_%d", i+1)
 		for _, e := range oneNoteExt {
@@ -102,6 +106,13 @@ func analyzeOneNote(ctx context.Context, data []byte, r *report.Report, opts Opt
 	if len(children) > 0 {
 		addFinding(r, report.StaticFinding{Kind: "onenote_embedded_file", Severity: "medium", Location: "OneNote section", Target: fmt.Sprintf("%d file(s)", len(children)),
 			Detail: "OneNote section embeds files that open on a double click (lure pictures are often placed over them)"})
+	}
+	if opaque > 0 {
+		// Random-looking data of no known type: a password-protected
+		// section or an encrypted payload. Nothing in it can be analysed,
+		// which is itself a reason to treat the file with suspicion.
+		addFinding(r, report.StaticFinding{Kind: "onenote_encrypted_data", Severity: "medium", Location: "OneNote section", Target: fmt.Sprintf("%d file(s)", opaque),
+			Detail: "embedded data is encrypted or random (entropy above 7.9 bits/byte) and has no known file type: a password-protected section or an encrypted payload whose content cannot be analysed"})
 	}
 	r.Checks = append(r.Checks, fmt.Sprintf("OneNote FileDataStoreObject embedded files (%d, %d not pictures)", len(files), len(children)))
 	processChildren(ctx, r, children, opts)

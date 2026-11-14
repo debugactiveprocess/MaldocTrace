@@ -17,7 +17,7 @@ type Finding struct {
 }
 
 var (
-	reURL  = regexp.MustCompile(`(?i)\b(?:https?|ftp)://[^\s"'<>),\]]+`)
+	reURL  = regexp.MustCompile(`(?i)\b(?:https?|ftp)://[^\s"'<>),\]|^]+`)
 	reIP   = regexp.MustCompile(`\b(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\b`)
 	reDom  = regexp.MustCompile(`(?i)\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:com|net|org|ru|info|biz|io|xyz|top|pw|tk|ml|ga|cf|gq|shop|club|online|site|cc|co|me|us|uk|de|fr|it|es|nl|eu|su|kz|ua|by|pl|cz|ro|vn|in|cn|jp|kr|tw|nz|au|br|ar|mx|tr|ir|il|ng|za|ke)\b`)
 	reReg  = regexp.MustCompile(`(?i)\b(?:HKEY(?:_[A-Z0-9_]+)+|HK(?:CU|LM|CR|U|CC|DD|PD))\s*(?:\\|\\\\)?[\\/][^\s"'<>,\]]+`)

@@ -61,18 +61,31 @@ func (p *parser) parseDim() ast.Stmt {
 		p.advance()
 		d.Preserve = true
 	}
-	if p.cur().Kind == lexer.Ident {
-		d.Name = p.advance().Text
-	}
-	if p.cur().Kind == lexer.Op && p.cur().Text == "(" {
-		d.Bounds = p.parseBounds()
-	}
-	if isWord(p.cur(), "As") {
+	first := d
+	for {
+		if p.cur().Kind == lexer.Ident {
+			d.Name = p.advance().Text
+		}
+		if p.cur().Kind == lexer.Op && p.cur().Text == "(" {
+			d.Bounds = p.parseBounds()
+		}
+		if isWord(p.cur(), "As") {
+			p.advance()
+			d.Type = p.parseTypeName()
+		}
+		if p.cur().Kind != lexer.Op || p.cur().Text != "," {
+			break
+		}
 		p.advance()
-		d.Type = p.parseTypeName()
+		if p.cur().Kind != lexer.Ident {
+			break
+		}
+		next := &ast.Dim{At: ast.At{P: p.cur().Pos}, ReDim: first.ReDim, Preserve: first.Preserve, Static: first.Static}
+		d.Next = next
+		d = next
 	}
 	p.skipLine()
-	return d
+	return first
 }
 
 func (p *parser) parseBounds() []ast.Expr {

@@ -17,6 +17,20 @@ type folderObject struct {
 
 func (o *folderObject) TypeName() string { return "File" }
 func (o *folderObject) Get(name string) runtime.Value {
+	switch strings.ToLower(name) {
+	case "size":
+		if t := o.h.textFile(o.path); t != "" {
+			return runtime.VInt(int64(len(t)))
+		}
+		// A downloaded file's size is not known: droppers test it before
+		// launching the payload, and an unknown value lets speculative
+		// emulation follow that branch.
+		return runtime.NewUnknown("size of " + o.path + " is not simulated")
+	case "path":
+		return runtime.VString(o.path)
+	case "name":
+		return runtime.VString(fsoPathPart("getfilename", o.path))
+	}
 	return runtime.VEmpty
 }
 func (o *folderObject) Set(name string, v runtime.Value) {}
@@ -35,8 +49,35 @@ func (o *folderObject) Call(name string, args []runtime.Value) runtime.Value {
 }
 
 type textStream struct {
-	h    *Host
-	path string
+	h      *Host
+	path   string
+	closed bool
+}
+
+const maxTextFile = 4 << 20
+
+// appendTextFile records text written to a simulated file.
+func (h *Host) appendTextFile(path, text string) {
+	if h.textFiles == nil {
+		h.textFiles = map[string]*strings.Builder{}
+	}
+	key := strings.ToLower(path)
+	b := h.textFiles[key]
+	if b == nil {
+		b = &strings.Builder{}
+		h.textFiles[key] = b
+	}
+	if b.Len()+len(text) <= maxTextFile {
+		b.WriteString(text)
+	}
+}
+
+// textFile returns what the script wrote to a simulated file.
+func (h *Host) textFile(path string) string {
+	if b := h.textFiles[strings.ToLower(path)]; b != nil {
+		return b.String()
+	}
+	return ""
 }
 
 func (o *textStream) TypeName() string { return "TextStream" }
@@ -46,13 +87,33 @@ func (o *textStream) Get(name string) runtime.Value {
 func (o *textStream) Set(name string, v runtime.Value) {}
 func (o *textStream) Call(name string, args []runtime.Value) runtime.Value {
 	switch strings.ToLower(name) {
-	case "write", "writeline":
+	case "write", "writeline", "writeblanklines":
 		o.h.rec("file_write", args, map[string]string{"path": o.path})
+		text := ""
+		if len(args) > 0 {
+			text = args[0].CoerceString()
+		}
+		switch strings.ToLower(name) {
+		case "writeline":
+			text += "\r\n"
+		case "writeblanklines":
+			text = "\r\n"
+		}
+		o.h.appendTextFile(o.path, text)
 		return runtime.VEmpty
 	case "readall", "readline":
 		o.h.recStr("file_read", o.path, nil)
-		return runtime.VString("")
+		return runtime.VString(o.h.textFile(o.path))
 	case "close":
+		// The whole text written through the stream is reported once, so
+		// a script dropped line by line is recovered as one artifact.
+		if content := o.h.textFile(o.path); content != "" && !o.closed {
+			o.closed = true
+			sum := sha256.Sum256([]byte(content))
+			o.h.recStr("file_close", o.path, map[string]string{
+				"content_sha256": hex.EncodeToString(sum[:]), "content_hex": hex.EncodeToString([]byte(content)),
+			})
+		}
 		return runtime.VEmpty
 	}
 	return runtime.VUnknown

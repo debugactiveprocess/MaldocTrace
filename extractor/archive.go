@@ -56,6 +56,8 @@ func DetectContainer(data []byte) string {
 		return "7z"
 	case IsOneNote(data):
 		return "onenote"
+	case IsISO(data):
+		return "iso"
 	case Detect(data) == FormatOOXML && !isOOXMLPackage(data):
 		return "zip"
 	case Detect(data) == FormatCFB && isOutlookMessage(data):
@@ -109,6 +111,8 @@ func OpenArchive(data []byte, kind string, lim *Limits) (*Archive, error) {
 		return openZipArchive(data, lim)
 	case "7z":
 		return open7z(data, lim)
+	case "iso":
+		return openISO(data, lim)
 	}
 	return nil, fmt.Errorf("unsupported archive %q", kind)
 }

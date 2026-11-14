@@ -87,7 +87,10 @@ type Interp struct {
 	speculate      bool
 	onErr          bool
 	exited         bool
-	notes          []string
+	execDepth      int
+	// speculateUnknown explores If branches with unresolved conditions.
+	speculateUnknown bool
+	notes            []string
 }
 
 // New creates an interpreter for one module's parsed AST.
@@ -119,6 +122,10 @@ func New(mod *ast.Module, moduleName string, host Host, lim Limits) *Interp {
 	}
 	return rt
 }
+
+// SetSpeculative makes If statements whose condition cannot be resolved
+// run their first such branch, with its events marked speculative.
+func (rt *Interp) SetSpeculative(on bool) { rt.speculateUnknown = on }
 
 // StepExceeded reports whether the instruction budget is exhausted.
 func (rt *Interp) StepExceeded() bool { return rt.steps >= rt.lim.MaxSteps }
@@ -161,11 +168,13 @@ func (rt *Interp) setVar(name string, v Value) {
 			return
 		}
 	}
-	if len(rt.scopes) > 0 {
-		rt.scopes[len(rt.scopes)-1][name] = v
+	if _, ok := rt.globals[name]; ok || len(rt.scopes) == 0 {
+		// A module-level (Dim/Public/Private) variable assigned inside a
+		// procedure keeps its value after the procedure returns.
+		rt.globals[name] = v
 		return
 	}
-	rt.globals[name] = v
+	rt.scopes[len(rt.scopes)-1][name] = v
 }
 
 func (rt *Interp) getVar(name string) (Value, bool) {

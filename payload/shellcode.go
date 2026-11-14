@@ -310,7 +310,14 @@ func ProfileShellcode(b []byte) *ShellcodeProfile {
 	}
 
 	// XOR decoder stubs: xor byte ptr [reg], imm8 and xor byte ptr [reg+disp8], imm8.
-	for i := 0; i+3 <= len(b) && len(p.XORStubs) < 4; i++ {
+	// These byte pairs occur by chance in encrypted or compressed data, so
+	// in a high-entropy buffer only a stub at the start (where a decoder
+	// sits in front of its encrypted body) counts.
+	stubLimit := len(b)
+	if entropy(b) > 7.5 {
+		stubLimit = min(len(b), 256)
+	}
+	for i := 0; i+3 <= stubLimit && len(p.XORStubs) < 4; i++ {
 		if b[i] != 0x80 {
 			continue
 		}

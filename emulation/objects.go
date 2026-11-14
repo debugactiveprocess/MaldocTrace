@@ -105,6 +105,11 @@ type fso struct{ h *Host }
 
 func (o *fso) TypeName() string { return "FileSystemObject" }
 func (o *fso) Get(name string) runtime.Value {
+	// Methods without arguments are often written without parentheses
+	// (fso.GetTempName), which reads them as properties.
+	if strings.EqualFold(name, "gettempname") {
+		return o.Call(name, nil)
+	}
 	return runtime.VEmpty
 }
 func (o *fso) Set(name string, v runtime.Value) {}
@@ -144,8 +149,11 @@ func (o *fso) Call(name string, args []runtime.Value) runtime.Value {
 		return runtime.VString(argString(args, 0) + "\\" + argString(args, 1))
 	case "getspecialfolder":
 		return runtime.VString("%TEMP%")
+	case "getparentfoldername", "getfilename", "getbasename", "getextensionname", "getabsolutepathname":
+		return runtime.VString(fsoPathPart(strings.ToLower(name), argString(args, 0)))
 	case "gettempname":
-		return runtime.VString("%TEMP%\\simulated.tmp")
+		// Windows returns a bare name such as "radB93F1.tmp".
+		return runtime.VString("rad5F3A1.tmp")
 	case "driveexists":
 		return runtime.VBool(false)
 	}
@@ -153,3 +161,30 @@ func (o *fso) Call(name string, args []runtime.Value) runtime.Value {
 }
 
 // __EMU_OBJECTS2__
+
+// fsoPathPart implements the FileSystemObject path helpers on Windows paths.
+func fsoPathPart(method, p string) string {
+	p = strings.TrimRight(p, `\/`)
+	i := strings.LastIndexAny(p, `\/`)
+	base := p[i+1:]
+	switch method {
+	case "getparentfoldername":
+		if i < 0 {
+			return ""
+		}
+		return p[:i]
+	case "getfilename":
+		return base
+	case "getbasename":
+		if j := strings.LastIndexByte(base, '.'); j > 0 {
+			return base[:j]
+		}
+		return base
+	case "getextensionname":
+		if j := strings.LastIndexByte(base, '.'); j >= 0 {
+			return base[j+1:]
+		}
+		return ""
+	}
+	return p
+}
