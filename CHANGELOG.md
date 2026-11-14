@@ -5,6 +5,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+Coverage fixes from 14 recent MalwareBazaar OneNote droppers (IcedID, Emotet, Qakbot, Gozi, MetaStealer): commands are now recovered from all the script-based ones.
+
+### Added
+
+- **VBScript emulation** for embedded `.vbs` files (OneNote sections, archives, email attachments, OLE packages). Top-level statements run (`a:b:c` lines are statements, not labels), `WScript` is a global object, and `Execute`/`ExecuteGlobal` run the code they build. Scripts that write the next stage to disk and launch it are followed for up to three stages, each as a child report (`script_emulation`, then `script_stage`). In these scripts an `If` whose condition cannot be resolved (the size of a downloaded file) is explored speculatively, and its events are marked `speculative`.
+- **Batch deobfuscation**: commands assembled from `set` fragments are recovered the way `cmd.exe` expands them (`%VAR%`, `%VAR:~start,len%`, `%VAR:old=new%`, `%VAR:*old=new%`, `!VAR!`, `^` escapes; unset variables expand to nothing). The expanded script is reported as a decoded string.
+- **ISO 9660 images** are opened as containers (email attachments, OneNote sections) and their files analysed; an `embedded_disk_image` finding reports one carried by a document.
+- **MSI packages** and **CHM help files** are classified and reported as `embedded_executable`.
+- `onenote_encrypted_data` finding (suspicious): embedded data that is encrypted or random and of no known type, as in a password-protected section.
+- Emulation: `Err` object (`Err.Number` is 0), `Shell.Application.Open`, `FileSystemObject` path helpers (`GetParentFolderName`, `GetFileName`, `GetBaseName`, `GetExtensionName`). Text written through `CreateTextFile` is captured as one artifact when the stream is closed and returned by `ReadAll`.
+
+### Fixed
+
+- Compound files of version 4 (4096-byte sectors, used by MSI packages) were read at the wrong offsets and rejected as a "cyclic directory chain".
+- Batch scripts whose first line is junk ahead of `@echo off` were not recognized.
+- Encrypted or random data was reported as shellcode because two-byte XOR decoder patterns occur in it by chance; on high-entropy data only stubs at the start are considered.
+- VBA/VBScript runtime: `Dim a, b, c` and `Public a, b` declared only the first name; a module-level variable assigned inside a procedure became a local; `Split` with an empty delimiter returned characters instead of the whole string; `obj.Run (cmd), 0, True` failed to parse; `FileSystemObject.GetTempName` returned a path instead of a bare name and could not be read without parentheses.
+- URLs no longer swallow a following `|` or `^` (`...p.ps1|iex`).
+
 ## [0.5.1] - 2026-11-14
 
 Coverage fixes from 48 recent MalwareBazaar maldocs: Word altChunk imports and Equation Editor exploits behind randomized MTEF headers and mangled OLE streams.

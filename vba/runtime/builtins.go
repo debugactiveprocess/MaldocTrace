@@ -38,6 +38,9 @@ func (rt *Interp) evalCall(c *ast.Call) Value {
 			}
 			return NewUnknown("array index out of range")
 		}
+		if rt.isExecute(name) {
+			return rt.execute(name, c, args)
+		}
 		if b, ok := builtins[name]; ok {
 			_, done := rt.callContext(c, args, "VBA", fn.Name)
 			defer done()
@@ -186,11 +189,17 @@ func builtinReplace(rt *Interp, args []Value, _ lexer.Pos) Value {
 
 func builtinSplit(rt *Interp, args []Value, _ lexer.Pos) Value {
 	s := argStr(args, 0)
-	delim := argStr(args, 1)
-	if delim == "" {
-		delim = " "
+	delim := " "
+	if len(args) > 1 {
+		delim = argStr(args, 1)
 	}
-	parts := strings.Split(s, delim)
+	if s == "" {
+		return VArray(nil) // UBound = -1
+	}
+	parts := []string{s} // an empty delimiter returns the whole string
+	if delim != "" {
+		parts = strings.Split(s, delim)
+	}
 	arr := make([]Value, len(parts))
 	for i, p := range parts {
 		arr[i] = VString(p)

@@ -33,6 +33,9 @@ type Dim struct {
 	// Preserve is set for "ReDim Preserve".
 	Preserve bool
 	Static   bool
+	// Next is the following variable of the same statement
+	// ("Dim a, b As String").
+	Next *Dim
 }
 
 func (s *Dim) stmtNode() {}

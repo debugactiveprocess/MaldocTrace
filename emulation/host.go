@@ -43,6 +43,7 @@ type Host struct {
 	props        []*docProp
 	xlm          *xlmEngine
 	xlmWrites    []XLMWrite
+	textFiles    map[string]*strings.Builder
 }
 
 // NewHost creates an emulation host.
@@ -87,6 +88,9 @@ func (h *Host) Record(e *runtime.Event) {
 			e.Raw = c.Raw
 			e.Arguments = c.Arguments
 		}
+		// An object call made in a speculatively explored branch is
+		// speculative too.
+		e.Speculative = e.Speculative || c.Speculative
 		for _, frame := range h.contexts {
 			e.CallChain = append(e.CallChain, frame.Module+"."+frame.Proc)
 		}
@@ -153,6 +157,10 @@ func (h *Host) GetObject(name string) runtime.Value {
 	switch low {
 	case "debug":
 		return runtime.VObject(&debugObject{})
+	case "wscript":
+		return runtime.VObject(&wscriptObject{h: h})
+	case "err":
+		return runtime.VObject(&errObject{})
 	case "activesheet":
 		return runtime.VObject(&sheetObject{h: h, s: h.workbook().active()})
 	case "range", "cells", "sheets", "worksheets", "executeexcel4macro":

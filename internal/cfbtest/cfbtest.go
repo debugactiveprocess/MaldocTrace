@@ -222,3 +222,50 @@ func Record(typ uint16, data []byte) []byte {
 	binary.LittleEndian.PutUint16(b[2:], uint16(len(data)))
 	return append(b, data...)
 }
+
+// BuildV4 builds a version 4 compound file (4096-byte sectors, the layout
+// of MSI packages) holding one stream of at least 4096 bytes, so no mini
+// stream is needed. The root storage gets the given CLSID.
+func BuildV4(name string, data []byte, rootCLSID [16]byte) []byte {
+	const ss = 4096
+	nData := (len(data) + ss - 1) / ss
+	out := make([]byte, ss*(3+nData)) // header, FAT, directory, data
+	copy(out, []byte{0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1})
+	binary.LittleEndian.PutUint16(out[0x18:], 0x3E)
+	binary.LittleEndian.PutUint16(out[0x1A:], 4)
+	binary.LittleEndian.PutUint16(out[0x1C:], 0xFFFE)
+	binary.LittleEndian.PutUint16(out[0x1E:], 12)
+	binary.LittleEndian.PutUint16(out[0x20:], 6)
+	binary.LittleEndian.PutUint32(out[0x28:], 1)
+	binary.LittleEndian.PutUint32(out[0x2C:], 1)
+	binary.LittleEndian.PutUint32(out[0x30:], 1)
+	binary.LittleEndian.PutUint32(out[0x38:], 4096)
+	binary.LittleEndian.PutUint32(out[0x3C:], 0xFFFFFFFE)
+	binary.LittleEndian.PutUint32(out[0x44:], 0xFFFFFFFE)
+	for i := 0; i < 109; i++ {
+		binary.LittleEndian.PutUint32(out[0x4C+4*i:], 0xFFFFFFFF)
+	}
+	binary.LittleEndian.PutUint32(out[0x4C:], 0) // FAT in sector 0
+	fat := out[ss : 2*ss]
+	for i := 0; i < ss/4; i++ {
+		binary.LittleEndian.PutUint32(fat[4*i:], 0xFFFFFFFF)
+	}
+	binary.LittleEndian.PutUint32(fat[0:], 0xFFFFFFFD)
+	binary.LittleEndian.PutUint32(fat[4:], 0xFFFFFFFE)
+	for i := 0; i < nData; i++ {
+		next := uint32(3 + i)
+		if i == nData-1 {
+			next = 0xFFFFFFFE
+		}
+		binary.LittleEndian.PutUint32(fat[4*(2+i):], next)
+	}
+	dir := out[2*ss : 3*ss]
+	writeEntry(dir[0:128], "Root Entry", 5, -1, -1, 1, 0xFFFFFFFE, 0)
+	copy(dir[0x50:0x60], rootCLSID[:])
+	writeEntry(dir[128:256], name, 2, -1, -1, -1, 2, uint64(len(data)))
+	for i := 2; i < ss/128; i++ {
+		writeEntry(dir[i*128:(i+1)*128], "", 0, 0, 0, 0, 0, 0)
+	}
+	copy(out[3*ss:], data)
+	return out
+}

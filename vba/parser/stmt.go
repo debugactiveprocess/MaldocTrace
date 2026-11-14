@@ -124,6 +124,13 @@ func (p *parser) parseAssignOrCall() ast.Stmt {
 	}
 	switch e := lhs.(type) {
 	case *ast.Call:
+		if len(e.Args) == 1 && p.cur().Kind == lexer.Op && p.cur().Text == "," {
+			// obj.Run (cmd), 0, True: the parentheses wrap the first
+			// argument of a statement call, not the whole argument list.
+			p.advance()
+			args := append([]ast.Expr{&ast.Paren{At: ast.At{P: e.Args[0].Pos()}, X: e.Args[0]}}, p.parseArgList()...)
+			return &ast.CallStmt{At: ast.At{P: start}, CallExpr: &ast.Call{At: ast.At{P: start}, Fn: e.Fn, Args: args}}
+		}
 		return &ast.CallStmt{At: ast.At{P: start}, CallExpr: e}
 	case *ast.Ident:
 		// Bare Sub call (with or without parens / arguments).

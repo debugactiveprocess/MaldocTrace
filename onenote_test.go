@@ -62,3 +62,28 @@ func FuzzOneNote(f *testing.F) {
 		extractor.OneNoteFiles(b)
 	})
 }
+
+func TestOneNoteEncryptedSection(t *testing.T) {
+	// A password-protected section: the embedded data is random. It must
+	// not be read as shellcode (no XOR stub "found" by chance), and the
+	// file is suspicious because nothing in it can be analysed.
+	rnd := make([]byte, 64<<10)
+	x := uint32(2463534242)
+	for i := range rnd {
+		x ^= x << 13
+		x ^= x >> 17
+		x ^= x << 5
+		rnd[i] = byte(x)
+	}
+	data := append(append([]byte(nil), oneMagic...), make([]byte, 64)...)
+	data = append(data, oneFile(rnd)...)
+	r := AnalyzeFromBytes(context.Background(), data, "locked.one", Options{})
+	if r.Verdict != "suspicious" || !hasFindingSev(r, "onenote_encrypted_data", "medium") {
+		t.Fatalf("verdict %s %v", r.Verdict, r.VerdictReasons)
+	}
+	for _, p := range r.DecodedPayloads {
+		if strings.Contains(strings.ToLower(p.FileType), "shellcode") {
+			t.Fatalf("random data reported as shellcode: %+v", p)
+		}
+	}
+}

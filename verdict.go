@@ -28,8 +28,9 @@ var attackFindings = map[string]bool{
 }
 
 // lureFindings are phishing lures (no code, but a click or scan away from
-// a malicious page): suspicious on their own.
-var lureFindings = map[string]bool{"qr_code_lure": true, "shape_hyperlink": true}
+// a malicious page) and content hidden from analysis (an encrypted OneNote
+// section): suspicious on their own.
+var lureFindings = map[string]bool{"qr_code_lure": true, "shape_hyperlink": true, "onenote_encrypted_data": true}
 
 var severityPoints = map[string]int{"high": 40, "medium": 15, "low": 3}
 

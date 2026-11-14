@@ -142,3 +142,6 @@ func describePE(b []byte) (string, []string) {
 	}
 	return kind, facts
 }
+
+// Entropy returns the Shannon entropy of b in bits per byte (0-8).
+func Entropy(b []byte) float64 { return entropy(b) }

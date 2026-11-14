@@ -75,7 +75,7 @@ func ExprText(e ast.Expr) string {
 }
 
 func (rt *Interp) callContext(c *ast.Call, args []Value, receiver, method string) (*Event, func()) {
-	e := &Event{Module: rt.curModule, Proc: rt.curProc, Line: c.Pos().Line, Col: c.Pos().Col, Receiver: receiver, Method: method, Simulated: true}
+	e := &Event{Module: rt.curModule, Proc: rt.curProc, Line: c.Pos().Line, Col: c.Pos().Col, Receiver: receiver, Method: method, Simulated: true, Speculative: rt.speculate}
 	for i, v := range args {
 		raw := ExprText(c.Args[i])
 		value := v.CoerceString()

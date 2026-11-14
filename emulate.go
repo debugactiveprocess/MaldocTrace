@@ -87,6 +87,7 @@ func runEmulation(ctx context.Context, res *extractor.Result, r *report.Report, 
 	for _, pm := range parsed {
 		d.ints[strings.ToLower(pm.ext.Name)] = runtime.New(pm.mod, pm.ext.Name, host, opts.RuntimeLimits)
 		d.ints[strings.ToLower(pm.ext.Name)].SetContext(ctx)
+		d.ints[strings.ToLower(pm.ext.Name)].SetSpeculative(opts.Speculative)
 		d.ints[strings.ToLower(pm.ext.Name)].SetOptionExplicit(strings.Contains(strings.ToLower(pm.ext.Code), "option explicit"))
 	}
 

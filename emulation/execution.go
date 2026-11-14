@@ -13,7 +13,7 @@ func (o *shellApplication) Get(n string) runtime.Value {
 }
 func (o *shellApplication) Set(n string, v runtime.Value) {}
 func (o *shellApplication) Call(n string, a []runtime.Value) runtime.Value {
-	if strings.EqualFold(n, "ShellExecute") {
+	if strings.EqualFold(n, "ShellExecute") || strings.EqualFold(n, "Open") || strings.EqualFold(n, "Explore") {
 		o.h.rec("shell_execute", a, nil)
 		return runtime.VEmpty
 	}

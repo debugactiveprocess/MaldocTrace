@@ -194,7 +194,9 @@ func equalBytes(a, b []byte) bool {
 
 // readSectorBytes returns the raw bytes of a regular sector.
 func (r *cfbReader) readSectorBytes(sector uint32) ([]byte, error) {
-	off := int64(512) + int64(sector)*int64(r.sectorSize)
+	// The header fills the whole first sector: 512 bytes in version 3
+	// files, 4096 in version 4 (sector shift 12, used by MSI packages).
+	off := (int64(sector) + 1) * int64(r.sectorSize)
 	if off < 0 || off+int64(r.sectorSize) > int64(len(r.data)) {
 		return nil, ErrTruncated
 	}
