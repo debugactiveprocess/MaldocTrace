@@ -121,8 +121,11 @@ func parseCFB(data []byte, lim *Limits) (*cfbReader, error) {
 	if numFatSectors == 0 {
 		numFatSectors = uint32(len(difat))
 	}
-	fat := make([]uint32, 0, int(numFatSectors)*int(r.sectorSize/4))
+	// The sector counts come from the header and cannot be trusted: a file
+	// can hold at most len(data)/sectorSize sectors, so size buffers from that.
+	maxSectors := uint32(len(data)/int(r.sectorSize)) + 1
 	maxFatEntries := int(lim.MaxContainerEntries) * 128
+	fat := make([]uint32, 0, min(int(min(numFatSectors, maxSectors, uint32(len(difat))))*int(r.sectorSize/4), maxFatEntries))
 	for i := 0; i < len(difat) && i < int(numFatSectors); i++ {
 		sect := difat[i]
 		if sect > maxRegularSector {
@@ -146,7 +149,8 @@ func parseCFB(data []byte, lim *Limits) (*cfbReader, error) {
 	}
 	// Read mini FAT.
 	if numMiniFat > 0 && firstMiniFat <= maxRegularSector {
-		miniFat := make([]uint32, 0, int(numMiniFat)*int(r.sectorSize/4))
+		numMiniFat = min(numMiniFat, maxSectors)
+		miniFat := make([]uint32, 0, min(int(numMiniFat)*int(r.sectorSize/4), maxFatEntries))
 		cur = firstMiniFat
 		for i := 0; cur <= maxRegularSector && i < int(numMiniFat); i++ {
 			b, err := r.readSectorBytes(cur)
@@ -155,6 +159,9 @@ func parseCFB(data []byte, lim *Limits) (*cfbReader, error) {
 			}
 			for j := 0; j+4 <= len(b); j += 4 {
 				miniFat = append(miniFat, binary.LittleEndian.Uint32(b[j:]))
+				if len(miniFat) > maxFatEntries {
+					return nil, Wrap("cfb", ErrLimitExceeded)
+				}
 			}
 			cur = r.nextSector(cur)
 		}

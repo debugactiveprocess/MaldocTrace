@@ -70,6 +70,9 @@ Prebuilt binaries for **Windows**, **Linux** and **macOS** (x64 and ARM64) are o
 With a package manager:
 
 ```bash
+# Any platform with Python 3.8+ (PyPI; the wheel contains the same static binary)
+pip install maldoctrace          # or: pipx install maldoctrace / uv tool install maldoctrace
+
 # macOS / Linux (Homebrew)
 brew install debugactiveprocess/tap/maldoctrace
 
@@ -85,7 +88,7 @@ Requires Go 1.23+. Dependencies: `golang.org/x/text` and, for 7z archives, [`git
 Install a tagged release:
 
 ```bash
-go install github.com/debugactiveprocess/MaldocTrace/cmd/maldoctrace@v0.5.1
+go install github.com/debugactiveprocess/MaldocTrace/cmd/maldoctrace@v0.6.0
 ```
 
 Or build from a release tarball or a clone:
@@ -478,7 +481,25 @@ Inputs that made the fuzzers fail are kept under `testdata/fuzz/` as permanent r
    git push origin vX.Y.Z
    ```
 
-The [release workflow](.github/workflows/release.yml) then runs the tests and builds static binaries for Windows, Linux and macOS (amd64/arm64), stamping each with the version from the tag. It publishes a GitHub Release with the archives, `checksums.txt` and that CHANGELOG section as notes. A tag without a matching CHANGELOG section fails instead of publishing an empty release.
+The [release workflow](.github/workflows/release.yml) then runs the tests and builds static binaries for Windows, Linux and macOS (amd64/arm64), stamping each with the version from the tag. It publishes a GitHub Release with the archives, `checksums.txt`, build provenance attestations and that CHANGELOG section as notes, then wraps the same binaries in wheels ([python/](python/)) and publishes them to PyPI as `maldoctrace` through trusted publishing. A tag without a matching CHANGELOG section fails instead of publishing an empty release.
+
+Prebuilt binaries can be checked against their attestation:
+
+```bash
+gh attestation verify maldocTrace_<version>_linux_amd64.tar.gz --repo debugactiveprocess/MaldocTrace
+```
+
+### Python API
+
+The PyPI package also exposes the analyzer to Python; it runs the bundled binary and returns the JSON report:
+
+```python
+import maldoctrace
+
+report = maldoctrace.analyze("sample.one")
+print(report["verdict"], report["risk_score"])
+report = maldoctrace.analyze_bytes(data, name="invoice.xls", passwords=["infected"])
+```
 
 ## Acknowledgements
 
