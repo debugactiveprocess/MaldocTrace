@@ -1,11 +1,11 @@
 module github.com/debugactiveprocess/MaldocTrace
 
-go 1.23
+go 1.26.0
 
 require (
 	github.com/bodgit/sevenzip v1.6.1
 	github.com/ulikunitz/xz v0.5.12
-	golang.org/x/text v0.21.0
+	golang.org/x/text v0.44.0
 )
 
 require (
