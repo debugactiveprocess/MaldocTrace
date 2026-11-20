@@ -39,6 +39,7 @@ You can verify downloads against `checksums.txt` (SHA-256), or check that an arc
 - Encrypted or random data was reported as shellcode because two-byte XOR decoder patterns occur in it by chance; on high-entropy data only stubs at the start are considered.
 - VBA/VBScript runtime: `Dim a, b, c` and `Public a, b` declared only the first name; a module-level variable assigned inside a procedure became a local; `Split` with an empty delimiter returned characters instead of the whole string; `obj.Run (cmd), 0, True` failed to parse; `FileSystemObject.GetTempName` returned a path instead of a bare name and could not be read without parentheses.
 - URLs no longer swallow a following `|` or `^` (`...p.ps1|iex`).
+- A compound file whose header declares a huge FAT or mini FAT sector count made the parser try to allocate terabytes and crash the process; buffers are now sized from the file length (found by fuzzing).
 
 ## [0.5.1] - 2026-11-14
 
