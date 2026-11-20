@@ -5,7 +5,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-Coverage fixes from 14 recent MalwareBazaar OneNote droppers (IcedID, Emotet, Qakbot, Gozi, MetaStealer): commands are now recovered from all the script-based ones.
+## [0.6.0] - 2026-11-20
+
+Coverage fixes from 14 recent MalwareBazaar OneNote droppers (IcedID, Emotet, Qakbot, Gozi, MetaStealer): commands are now recovered from all the script-based ones. MaldocTrace is now also published on PyPI, and release archives carry build provenance attestations.
+
+### Downloads
+
+| Platform | Archive |
+|---|---|
+| Windows x64 / ARM64 | `maldocTrace_0.6.0_windows_amd64.zip`, `maldocTrace_0.6.0_windows_arm64.zip` |
+| Linux x64 / ARM64 | `maldocTrace_0.6.0_linux_amd64.tar.gz`, `maldocTrace_0.6.0_linux_arm64.tar.gz` |
+| macOS Intel / Apple Silicon | `maldocTrace_0.6.0_darwin_amd64.tar.gz`, `maldocTrace_0.6.0_darwin_arm64.tar.gz` |
+
+Or install with `pip install maldoctrace` (also `pipx` / `uv tool install`): the wheels contain these same binaries.
+
+You can verify downloads against `checksums.txt` (SHA-256), or check that an archive was built by the release workflow with `gh attestation verify <archive> --repo debugactiveprocess/MaldocTrace`. The binaries are static and have no dependencies. The macOS builds are not notarized, so remove the quarantine flag before running them: `xattr -d com.apple.quarantine maldocTrace`.
 
 ### Added
 
@@ -15,6 +29,8 @@ Coverage fixes from 14 recent MalwareBazaar OneNote droppers (IcedID, Emotet, Qa
 - **MSI packages** and **CHM help files** are classified and reported as `embedded_executable`.
 - `onenote_encrypted_data` finding (suspicious): embedded data that is encrypted or random and of no known type, as in a password-protected section.
 - Emulation: `Err` object (`Err.Number` is 0), `Shell.Application.Open`, `FileSystemObject` path helpers (`GetParentFolderName`, `GetFileName`, `GetBaseName`, `GetExtensionName`). Text written through `CreateTextFile` is captured as one artifact when the stream is closed and returned by `ReadAll`.
+- **PyPI package** `maldoctrace`: platform wheels (Windows, Linux, macOS; x64 and ARM64) that install the release binary as the `maldoctrace` command, plus a small Python API (`maldoctrace.analyze()`, `maldoctrace.analyze_bytes()`) that returns the JSON report as a dict.
+- Release archives get a GitHub build provenance attestation (`gh attestation verify`). Continuous integration runs formatting, vet, the tests and a short fuzzing pass on every pull request. `SECURITY.md` describes how to report vulnerabilities privately.
 
 ### Fixed
 
@@ -294,7 +310,8 @@ You can verify downloads against `checksums.txt` (SHA-256). The binaries are sta
   - `--dump-payloads DIR` to write decoded payloads and dropped files with neutral extensions and a `manifest.json`.
 - **Robustness**: each pipeline stage recovers from panics and records them as diagnostics. The VBA pipeline and container parsers are fuzzed.
 
-[Unreleased]: https://github.com/debugactiveprocess/MaldocTrace/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/debugactiveprocess/MaldocTrace/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/debugactiveprocess/MaldocTrace/releases/tag/v0.6.0
 [0.5.1]: https://github.com/debugactiveprocess/MaldocTrace/releases/tag/v0.5.1
 [0.5.0]: https://github.com/debugactiveprocess/MaldocTrace/releases/tag/v0.5.0
 [0.4.0]: https://github.com/debugactiveprocess/MaldocTrace/releases/tag/v0.4.0
