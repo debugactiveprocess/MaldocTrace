@@ -1,5 +1,7 @@
 # MaldocTrace
 
+<p align="center"><img src="docs/demo.gif" alt="MaldocTrace following an IcedID OneNote dropper through three VBScript stages to the final rundll32 command" width="900"></p>
+
 MaldocTrace is a defensive analyzer for malicious Office documents, written in Go. It extracts VBA and Excel 4.0 (XLM) macros, rebuilds obfuscated strings, and emulates the macros in a fully simulated environment. The output reports what the document *would* do: the commands it would run, the payloads it would decode and the files it would drop. All of it is backed by evidence that points to the module, procedure and line (or sheet and cell) that produced it.
 
 Documents with no macros at all are covered too. Remote template injection, DDE fields, linked and embedded OLE objects (including Equation Editor exploits in RTF), hyperlinked lure images and VBA stomping are reported as static findings.
