@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	github.com/bodgit/sevenzip v1.6.5
-	github.com/ulikunitz/xz v0.5.15
+	github.com/ulikunitz/xz v0.5.17
 	golang.org/x/text v0.44.0
 )
 
